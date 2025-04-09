@@ -1,0 +1,10 @@
+{
+  "views": { "price": 0.1, "name": "播放量", "description": "增加视频的观看次数" },
+  "likes": { "price": 0.2, "name": "点赞数", "description": "增加内容的点赞/喜欢数量" },
+  "completionRate": { "price": 0.3, "name": "完播率", "description": "提高视频的观看完成度" },
+  "shares": { "price": 0.2, "name": "分享数", "description": "增加内容被分享的次数" },
+  "saves": { "price": 0.2, "name": "收藏量", "description": "提升内容的收藏/书签数量" },
+  "comments": { "price": 0.3, "name": "评论数", "description": "增加内容的评论互动" },
+  "coins": { "price": 0.3, "name": "投币数", "description": "增加B站视频的投币数量" },
+  "reads": { "price": 0.1, "name": "阅读量", "description": "增加公众号文章的阅读数" }
+}

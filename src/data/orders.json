@@ -1,0 +1,52 @@
+[
+  {
+    "id": "ORD-123456",
+    "userId": "user_1",
+    "platform": "douyin",
+    "platformName": "抖音",
+    "date": "2025-04-09",
+    "status": "completed",
+    "services": {
+      "views": 1000,
+      "likes": 200
+    },
+    "progress": 100,
+    "price": 140.00,
+    "url": "https://v.douyin.com/example1",
+    "createdAt": "2025-04-09T10:15:00Z"
+  },
+  {
+    "id": "ORD-123457",
+    "userId": "user_1",
+    "platform": "xiaohongshu",
+    "platformName": "小红书",
+    "date": "2025-04-08",
+    "status": "in_progress",
+    "services": {
+      "views": 2000,
+      "likes": 300,
+      "saves": 100
+    },
+    "progress": 65,
+    "price": 290.00,
+    "url": "https://www.xiaohongshu.com/example2",
+    "createdAt": "2025-04-08T14:30:00Z"
+  },
+  {
+    "id": "ORD-123458",
+    "userId": "user_1",
+    "platform": "bilibili",
+    "platformName": "哔哩哔哩",
+    "date": "2025-04-07",
+    "status": "pending",
+    "services": {
+      "views": 5000,
+      "likes": 500,
+      "shares": 200
+    },
+    "progress": 0,
+    "price": 670.00,
+    "url": "https://www.bilibili.com/example3",
+    "createdAt": "2025-04-07T09:45:00Z"
+  }
+]

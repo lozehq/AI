@@ -1,0 +1,10 @@
+[
+  {
+    "id": "user_1",
+    "name": "用户123456",
+    "email": "user@example.com",
+    "phone": "13800138000",
+    "balance": 500.00,
+    "createdAt": "2025-03-15T08:30:00Z"
+  }
+]
