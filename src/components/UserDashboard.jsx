@@ -457,8 +457,7 @@ const UserDashboard = () => {
                     <Button
                       variant="contained"
                       color="primary"
-                      component={RouterLink}
-                      to="/"
+                      onClick={() => navigate('/')}
                     >
                       创建新订单
                     </Button>

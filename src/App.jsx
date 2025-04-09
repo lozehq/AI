@@ -1,12 +1,15 @@
 import React from 'react'
 import { Routes, Route } from 'react-router-dom'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
+import { ThemeProvider, createTheme, StyledEngineProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import Header from './components/Header'
 import Hero from './components/Hero'
 import ServiceForm from './components/ServiceForm'
 import UserDashboard from './components/UserDashboard'
 import Footer from './components/Footer'
+
+// 导入全局样式
+import './styles/global.css'
 
 // Create a sci-fi themed dark mode
 const darkTheme = createTheme({
@@ -111,22 +114,24 @@ const darkTheme = createTheme({
 
 function App() {
   return (
-    <ThemeProvider theme={darkTheme}>
-      <CssBaseline />
-      <div className="app">
-        <Header />
-        <Routes>
-          <Route path="/" element={
-            <>
-              <Hero />
-              <ServiceForm />
-            </>
-          } />
-          <Route path="/dashboard" element={<UserDashboard />} />
-        </Routes>
-        <Footer />
-      </div>
-    </ThemeProvider>
+    <StyledEngineProvider injectFirst>
+      <ThemeProvider theme={darkTheme}>
+        <CssBaseline />
+        <div className="app">
+          <Header />
+          <Routes>
+            <Route path="/" element={
+              <React.Fragment>
+                <Hero />
+                <ServiceForm />
+              </React.Fragment>
+            } />
+            <Route path="/dashboard" element={<UserDashboard />} />
+          </Routes>
+          <Footer />
+        </div>
+      </ThemeProvider>
+    </StyledEngineProvider>
   )
 }
 

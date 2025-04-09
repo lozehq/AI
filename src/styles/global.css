@@ -1,0 +1,38 @@
+/* 全局样式 */
+
+/* 替换-ms-high-contrast为新的标准 */
+@media (forced-colors: active) {
+  /* 在这里添加高对比度模式下的样式 */
+  .glass-panel {
+    border: 1px solid CanvasText;
+  }
+  
+  button {
+    border: 1px solid CanvasText;
+  }
+  
+  a {
+    color: LinkText;
+  }
+}
+
+/* 修复其他可能的样式问题 */
+.MuiGrid-root {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+/* 确保Grid组件正确显示 */
+.MuiGrid-container {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+}
+
+/* 确保Grid项目正确显示 */
+.MuiGrid-item {
+  margin: 0;
+  box-sizing: border-box;
+}
