@@ -32,7 +32,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 
 // 导入数据管理工具
 import { orderManager } from '../utils/dataManager';
@@ -220,7 +220,7 @@ const UserDashboard = () => {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Sidebar */}
-          <Grid item xs={12} md={3}>
+          <Grid lg={3} sm={12}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -319,7 +319,7 @@ const UserDashboard = () => {
           </Grid>
 
           {/* Main content */}
-          <Grid item xs={12} md={9}>
+          <Grid lg={9} sm={12}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -485,7 +485,7 @@ const UserDashboard = () => {
                     </Typography>
 
                     <Grid container spacing={2}>
-                      <Grid item xs={6}>
+                      <Grid sm={6}>
                         <Button
                           variant="contained"
                           color="primary"
@@ -495,7 +495,7 @@ const UserDashboard = () => {
                           充值
                         </Button>
                       </Grid>
-                      <Grid item xs={6}>
+                      <Grid sm={6}>
                         <Button
                           variant="outlined"
                           color="secondary"
@@ -538,7 +538,7 @@ const UserDashboard = () => {
                       </Typography>
 
                       <Grid container spacing={3}>
-                        <Grid item xs={12} sm={6}>
+                        <Grid sm={6}>
                           <TextField
                             fullWidth
                             label="用户名"
@@ -546,7 +546,7 @@ const UserDashboard = () => {
                             margin="normal"
                           />
                         </Grid>
-                        <Grid item xs={12} sm={6}>
+                        <Grid sm={6}>
                           <TextField
                             fullWidth
                             label="电子邮箱"
@@ -554,7 +554,7 @@ const UserDashboard = () => {
                             margin="normal"
                           />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid sm={12}>
                           <TextField
                             fullWidth
                             label="手机号码"
@@ -586,7 +586,7 @@ const UserDashboard = () => {
                           修改密码
                         </Typography>
                         <Grid container spacing={2}>
-                          <Grid item xs={12}>
+                          <Grid sm={12}>
                             <TextField
                               fullWidth
                               label="当前密码"
@@ -594,7 +594,7 @@ const UserDashboard = () => {
                               margin="normal"
                             />
                           </Grid>
-                          <Grid item xs={12} sm={6}>
+                          <Grid sm={6}>
                             <TextField
                               fullWidth
                               label="新密码"
@@ -602,7 +602,7 @@ const UserDashboard = () => {
                               margin="normal"
                             />
                           </Grid>
-                          <Grid item xs={12} sm={6}>
+                          <Grid sm={6}>
                             <TextField
                               fullWidth
                               label="确认新密码"
