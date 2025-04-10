@@ -30,13 +30,13 @@ import { userManager } from '../utils/dataManager';
 const AuthDialog = ({ open, onClose, onLogin }) => {
   // 标签状态
   const [tabValue, setTabValue] = useState(0);
-  
+
   // 表单状态
   const [loginForm, setLoginForm] = useState({
     username: '',
     password: ''
   });
-  
+
   const [registerForm, setRegisterForm] = useState({
     username: '',
     email: '',
@@ -44,21 +44,21 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
     password: '',
     confirmPassword: ''
   });
-  
+
   // UI状态
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   // 处理标签切换
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setError('');
     setSuccess('');
   };
-  
+
   // 处理登录表单变化
   const handleLoginChange = (e) => {
     const { name, value } = e.target;
@@ -68,7 +68,7 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
     }));
     setError('');
   };
-  
+
   // 处理注册表单变化
   const handleRegisterChange = (e) => {
     const { name, value } = e.target;
@@ -78,43 +78,43 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
     }));
     setError('');
   };
-  
+
   // 处理登录提交
   const handleLoginSubmit = () => {
     setLoading(true);
     setError('');
-    
+
     // 验证表单
     if (!loginForm.username || !loginForm.password) {
       setError('请填写所有必填字段');
       setLoading(false);
       return;
     }
-    
+
     // 模拟API调用延迟
     setTimeout(() => {
       try {
         // 获取所有用户
         const users = userManager.getAllUsers();
-        
+
         // 查找匹配的用户
-        const user = users.find(u => 
-          u.name === loginForm.username && 
+        const user = users.find(u =>
+          u.name === loginForm.username &&
           u.password === loginForm.password
         );
-        
+
         if (user) {
           // 登录成功
           setSuccess('登录成功！');
-          
+
           // 存储用户会话
           localStorage.setItem('currentUser', JSON.stringify(user));
-          
+
           // 通知父组件
           if (onLogin) {
             onLogin(user);
           }
-          
+
           // 关闭对话框
           setTimeout(() => {
             onClose();
@@ -130,38 +130,38 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
       }
     }, 1000);
   };
-  
+
   // 处理注册提交
   const handleRegisterSubmit = () => {
     setLoading(true);
     setError('');
-    
+
     // 验证表单
     if (!registerForm.username || !registerForm.email || !registerForm.phone || !registerForm.password) {
       setError('请填写所有必填字段');
       setLoading(false);
       return;
     }
-    
+
     if (registerForm.password !== registerForm.confirmPassword) {
       setError('两次输入的密码不一致');
       setLoading(false);
       return;
     }
-    
+
     // 模拟API调用延迟
     setTimeout(() => {
       try {
         // 获取所有用户
         const users = userManager.getAllUsers();
-        
+
         // 检查用户名是否已存在
         if (users.some(u => u.name === registerForm.username)) {
           setError('用户名已存在');
           setLoading(false);
           return;
         }
-        
+
         // 创建新用户
         const newUser = userManager.createUser({
           name: registerForm.username,
@@ -170,18 +170,18 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           password: registerForm.password,
           balance: 500.00 // 新用户赠送500元
         });
-        
+
         // 注册成功
         setSuccess('注册成功！您已获得500元初始余额');
-        
+
         // 存储用户会话
         localStorage.setItem('currentUser', JSON.stringify(newUser));
-        
+
         // 通知父组件
         if (onLogin) {
           onLogin(newUser);
         }
-        
+
         // 关闭对话框
         setTimeout(() => {
           onClose();
@@ -194,15 +194,22 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
       }
     }, 1000);
   };
-  
+
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={loading ? undefined : onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
+      slotProps={{
+        backdrop: {
+          sx: {
+            backdropFilter: 'blur(5px)'
+          }
+        }
+      }}
+      sx={{
+        '& .MuiDialog-paper': {
           background: 'rgba(10, 18, 41, 0.95)',
           backdropFilter: 'blur(10px)',
           borderRadius: 2,
@@ -212,8 +219,8 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
         }
       }}
     >
-      <DialogTitle sx={{ 
-        display: 'flex', 
+      <DialogTitle sx={{
+        display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         borderBottom: '1px solid rgba(0, 240, 255, 0.2)',
@@ -222,10 +229,10 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
         <Typography variant="h6" sx={{ color: 'primary.main' }}>
           {tabValue === 0 ? '用户登录' : '注册账号'}
         </Typography>
-        <IconButton 
+        <IconButton
           onClick={onClose}
           disabled={loading}
-          sx={{ 
+          sx={{
             color: 'text.secondary',
             '&:hover': { color: 'primary.main' }
           }}
@@ -233,10 +240,10 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      
+
       <DialogContent sx={{ pt: 3 }}>
-        <Tabs 
-          value={tabValue} 
+        <Tabs
+          value={tabValue}
           onChange={handleTabChange}
           variant="fullWidth"
           sx={{
@@ -257,26 +264,26 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           <Tab label="登录" />
           <Tab label="注册" />
         </Tabs>
-        
+
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             sx={{ mb: 2 }}
             onClose={() => setError('')}
           >
             {error}
           </Alert>
         )}
-        
+
         {success && (
-          <Alert 
-            severity="success" 
+          <Alert
+            severity="success"
             sx={{ mb: 2 }}
           >
             {success}
           </Alert>
         )}
-        
+
         {tabValue === 0 ? (
           // 登录表单
           <motion.div
@@ -301,7 +308,7 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
               }}
               sx={{ mb: 2 }}
             />
-            
+
             <TextField
               fullWidth
               label="密码"
@@ -330,12 +337,12 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
               }}
               sx={{ mb: 2 }}
             />
-            
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography 
-                variant="body2" 
+              <Typography
+                variant="body2"
                 color="primary.main"
-                sx={{ 
+                sx={{
                   cursor: 'pointer',
                   '&:hover': { textDecoration: 'underline' }
                 }}
@@ -368,7 +375,7 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
               }}
               sx={{ mb: 2 }}
             />
-            
+
             <TextField
               fullWidth
               label="电子邮箱"
@@ -387,7 +394,7 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
               }}
               sx={{ mb: 2 }}
             />
-            
+
             <TextField
               fullWidth
               label="手机号码"
@@ -405,7 +412,7 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
               }}
               sx={{ mb: 2 }}
             />
-            
+
             <TextField
               fullWidth
               label="密码"
@@ -434,7 +441,7 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
               }}
               sx={{ mb: 2 }}
             />
-            
+
             <TextField
               fullWidth
               label="确认密码"
@@ -466,9 +473,9 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           </motion.div>
         )}
       </DialogContent>
-      
-      <DialogActions sx={{ 
-        px: 3, 
+
+      <DialogActions sx={{
+        px: 3,
         pb: 3,
         display: 'flex',
         justifyContent: 'center'
@@ -479,7 +486,7 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           size="large"
           onClick={tabValue === 0 ? handleLoginSubmit : handleRegisterSubmit}
           disabled={loading}
-          sx={{ 
+          sx={{
             minWidth: 120,
             py: 1,
             fontSize: '1rem'
