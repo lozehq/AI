@@ -28,12 +28,16 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import WalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // 导入认证对话框
 import AuthDialog from './AuthDialog';
+
+// 导入用户管理工具
+import { userManager } from '../utils/dataManager';
 
 const Header = () => {
   const location = useLocation();
@@ -44,6 +48,7 @@ const Header = () => {
   // 认证状态
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 认证对话框状态
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -69,6 +74,9 @@ const Header = () => {
         const user = JSON.parse(storedUser);
         setCurrentUser(user);
         setIsLoggedIn(true);
+
+        // 检查是否是管理员
+        setIsAdmin(!!user.isAdmin);
       } catch (err) {
         console.error('Failed to parse user data:', err);
         localStorage.removeItem('currentUser');
@@ -94,6 +102,7 @@ const Header = () => {
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
     setIsLoggedIn(true);
+    setIsAdmin(!!user.isAdmin);
   };
 
   // 打开用户菜单
@@ -122,6 +131,7 @@ const Header = () => {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
+    setIsAdmin(false);
     localStorage.removeItem('currentUser');
     handleCloseUserMenu();
   };
@@ -265,6 +275,39 @@ const Header = () => {
                 }}
               />
             </ListItem>
+
+            {isAdmin && (
+              <ListItem
+                component={RouterLink}
+                to="/admin"
+                selected={location.pathname === '/admin'}
+                sx={{
+                  borderRadius: 1,
+                  mx: 1,
+                  mb: 1,
+                  '&.Mui-selected': {
+                    bgcolor: 'rgba(60, 255, 220, 0.1)',
+                    '&:hover': {
+                      bgcolor: 'rgba(60, 255, 220, 0.15)',
+                    }
+                  },
+                  '&:hover': {
+                    bgcolor: 'rgba(60, 255, 220, 0.05)',
+                  }
+                }}
+              >
+                <ListItemText
+                  primary="管理员面板"
+                  primaryTypographyProps={{
+                    sx: {
+                      textAlign: 'center',
+                      fontWeight: location.pathname === '/admin' ? 600 : 400,
+                      color: 'primary.main'
+                    }
+                  }}
+                />
+              </ListItem>
+            )}
 
             <ListItem
               button
@@ -615,6 +658,13 @@ const Header = () => {
                           <SettingsIcon sx={{ mr: 1, fontSize: 20 }} />
                           账户设置
                         </MenuItem>
+
+                        {isAdmin && (
+                          <MenuItem component={RouterLink} to="/admin">
+                            <AdminPanelSettingsIcon sx={{ mr: 1, fontSize: 20, color: 'primary.main' }} />
+                            <Typography color="primary.main">管理员面板</Typography>
+                          </MenuItem>
+                        )}
 
                         <Divider sx={{ borderColor: 'rgba(60, 255, 220, 0.1)', my: 1 }} />
 

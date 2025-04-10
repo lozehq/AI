@@ -4,7 +4,18 @@
  */
 
 // 默认用户数据
-const defaultUsers = [];
+const defaultUsers = [
+  {
+    "id": "admin_1",
+    "name": "admin",
+    "email": "admin@example.com",
+    "phone": "13800000000",
+    "password": "admin123",
+    "balance": 1000.00,
+    "isAdmin": true,
+    "createdAt": new Date().toISOString()
+  }
+];
 
 // 默认订单数据
 const defaultOrders = [];
@@ -55,6 +66,7 @@ export const userManager = {
       id: `user_${Date.now()}`,
       createdAt: new Date().toISOString(),
       balance: 0,
+      isAdmin: false, // 默认非管理员
       ...userData
     };
 
@@ -90,6 +102,24 @@ export const userManager = {
     users[userIndex].balance += amount;
     localStorage.setItem('users', JSON.stringify(users));
     return users[userIndex];
+  },
+
+  // Check if user is admin
+  isAdmin: (userId) => {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const user = users.find(user => user.id === userId);
+    return user ? !!user.isAdmin : false;
+  },
+
+  // Get current user
+  getCurrentUser: () => {
+    try {
+      const currentUser = localStorage.getItem('currentUser');
+      return currentUser ? JSON.parse(currentUser) : null;
+    } catch (error) {
+      console.error('获取当前用户失败:', error);
+      return null;
+    }
   }
 };
 
