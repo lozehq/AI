@@ -530,7 +530,7 @@ const Hero = () => {
                         互动率
                       </Typography>
                       <Typography variant="h5" fontWeight="bold" className="gradient-text">
-                        +147%
+                        +100%
                       </Typography>
                       <Box className="data-bar" sx={{ mt: 1 }}>
                         <Box className="data-bar-fill" sx={{ width: '80%' }} />
@@ -564,7 +564,7 @@ const Hero = () => {
                         曝光量
                       </Typography>
                       <Typography variant="h5" fontWeight="bold" className="gradient-text">
-                        +283%
+                        +200%
                       </Typography>
                       <Box className="data-bar" sx={{ mt: 1 }}>
                         <Box className="data-bar-fill" sx={{ width: '95%' }} />

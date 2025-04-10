@@ -39,7 +39,7 @@ import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-d
 // 导入数据管理工具
 import { orderManager } from '../utils/dataManager';
 
-// 空的订单数组，将来会从后端获取真实数据
+// 空的订单数组
 const mockOrders = [];
 
 // Service name mapping
@@ -392,7 +392,7 @@ const UserDashboard = () => {
                     sx={{ mb: 4, p: 3 }}
                   >
                     <Typography variant="h4" color="primary.main" gutterBottom>
-                      ¥{currentUser?.balance?.toFixed(2) || '500.00'}
+                      ¥{currentUser?.balance?.toFixed(2) || '0.00'}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -457,7 +457,7 @@ const UserDashboard = () => {
                           <TextField
                             fullWidth
                             label="用户名"
-                            defaultValue={currentUser?.name || '用户123456'}
+                            defaultValue={currentUser?.name || ''}
                             margin="normal"
                           />
                         </Grid>
@@ -465,7 +465,7 @@ const UserDashboard = () => {
                           <TextField
                             fullWidth
                             label="电子邮箱"
-                            defaultValue={currentUser?.email || "user@example.com"}
+                            defaultValue={currentUser?.email || ""}
                             margin="normal"
                           />
                         </Grid>
@@ -473,7 +473,7 @@ const UserDashboard = () => {
                           <TextField
                             fullWidth
                             label="手机号码"
-                            defaultValue={currentUser?.phone || "138****1234"}
+                            defaultValue={currentUser?.phone || ""}
                             margin="normal"
                           />
                         </Grid>

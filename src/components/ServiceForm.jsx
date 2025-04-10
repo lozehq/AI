@@ -120,6 +120,25 @@ const ServiceForm = () => {
   // 处理订单创建
   const handleCreateNewOrder = () => {
     try {
+      // 检查是否有选择服务
+      const hasSelectedServices = Object.values(selectedServices).some(value => value > 0);
+      if (!hasSelectedServices) {
+        setError('请至少选择一项服务');
+        return;
+      }
+
+      // 检查平台是否有效
+      if (!detectedPlatform) {
+        setError('无法识别平台，请重新输入链接');
+        return;
+      }
+
+      // 检查URL是否有效
+      if (!videoUrl || videoUrl.trim() === '') {
+        setError('请输入有效的链接');
+        return;
+      }
+
       // 过滤掉数量为0的服务
       const filteredServices = {};
       for (const [key, value] of Object.entries(selectedServices)) {
@@ -130,6 +149,11 @@ const ServiceForm = () => {
 
       // 创建订单
       const order = createOrder(detectedPlatform, filteredServices, videoUrl);
+
+      if (!order || !order.orderId) {
+        throw new Error('订单创建失败，返回的订单数据无效');
+      }
+
       setCreatedOrderId(order.orderId);
       setOrderCreated(true);
 
@@ -137,7 +161,7 @@ const ServiceForm = () => {
       setActiveStep((prevStep) => prevStep + 1);
     } catch (error) {
       console.error('创建订单失败:', error);
-      setError('创建订单失败，请重试');
+      setError('创建订单失败，请重试: ' + (error.message || ''));
     }
   };
 

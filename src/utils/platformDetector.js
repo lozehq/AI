@@ -6,26 +6,58 @@
 export const detectPlatform = (url) => {
   // 如果URL为空或不是字符串，直接返回null
   if (!url || typeof url !== 'string' || url.trim() === '') {
+    console.warn('Invalid URL provided to detectPlatform:', url);
     return null;
   }
 
   try {
+    // 处理特殊字符和空格
+    let cleanUrl = url.trim();
+
     // 确保URL有协议前缀
-    let normalizedUrl = url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      normalizedUrl = 'https://' + url;
+    let normalizedUrl = cleanUrl;
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + cleanUrl;
     }
 
-    const urlObj = new URL(normalizedUrl);
+    // 尝试解析URL
+    let urlObj;
+    try {
+      urlObj = new URL(normalizedUrl);
+    } catch (urlError) {
+      console.warn('Failed to parse URL:', normalizedUrl, urlError);
+
+      // 尝试直接从文本中检测平台
+      const lowerUrl = normalizedUrl.toLowerCase();
+
+      if (lowerUrl.includes('douyin') || lowerUrl.includes('tiktok')) {
+        return 'douyin';
+      }
+      if (lowerUrl.includes('xiaohongshu') || lowerUrl.includes('xhs')) {
+        return 'xiaohongshu';
+      }
+      if (lowerUrl.includes('bilibili') || lowerUrl.includes('b23')) {
+        return 'bilibili';
+      }
+      if (lowerUrl.includes('kuaishou') || lowerUrl.includes('gifshow')) {
+        return 'kuaishou';
+      }
+      if (lowerUrl.includes('weixin') || lowerUrl.includes('wechat')) {
+        return 'wechat';
+      }
+
+      return null;
+    }
+
     const hostname = urlObj.hostname.toLowerCase();
 
     // Douyin detection
-    if (hostname.includes('douyin.com') || hostname.includes('iesdouyin.com')) {
+    if (hostname.includes('douyin.com') || hostname.includes('iesdouyin.com') || hostname.includes('tiktok.com')) {
       return 'douyin';
     }
 
     // Xiaohongshu detection
-    if (hostname.includes('xiaohongshu.com') || hostname.includes('xhslink.com')) {
+    if (hostname.includes('xiaohongshu.com') || hostname.includes('xhslink.com') || hostname.includes('xhs.com')) {
       return 'xiaohongshu';
     }
 
@@ -40,14 +72,34 @@ export const detectPlatform = (url) => {
     }
 
     // WeChat detection (public accounts and video channels)
-    if (hostname.includes('weixin.qq.com') || hostname.includes('mp.weixin.qq.com')) {
+    if (hostname.includes('weixin.qq.com') || hostname.includes('mp.weixin.qq.com') || hostname.includes('wechat.com')) {
+      return 'wechat';
+    }
+
+    // 如果还是无法检测，尝试从路径中检测
+    const fullPath = (urlObj.pathname + urlObj.search + urlObj.hash).toLowerCase();
+
+    if (fullPath.includes('douyin') || fullPath.includes('tiktok')) {
+      return 'douyin';
+    }
+    if (fullPath.includes('xiaohongshu') || fullPath.includes('xhs')) {
+      return 'xiaohongshu';
+    }
+    if (fullPath.includes('bilibili') || fullPath.includes('b23')) {
+      return 'bilibili';
+    }
+    if (fullPath.includes('kuaishou') || fullPath.includes('gifshow')) {
+      return 'kuaishou';
+    }
+    if (fullPath.includes('weixin') || fullPath.includes('wechat')) {
       return 'wechat';
     }
 
     // If no platform is detected
+    console.warn('No platform detected for URL:', url);
     return null;
   } catch (error) {
-    console.error('Error parsing URL:', error);
+    console.error('Error in detectPlatform:', error, 'for URL:', url);
     return null;
   }
 };

@@ -168,11 +168,11 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           email: registerForm.email,
           phone: registerForm.phone,
           password: registerForm.password,
-          balance: 500.00 // 新用户赠送500元
+          balance: 0.00 // 新用户初始余额
         });
 
         // 注册成功
-        setSuccess('注册成功！您已获得500元初始余额');
+        setSuccess('注册成功！');
 
         // 存储用户会话
         localStorage.setItem('currentUser', JSON.stringify(newUser));

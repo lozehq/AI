@@ -4,83 +4,13 @@
  */
 
 // 默认用户数据
-const defaultUsers = [
-  {
-    "id": "user_1",
-    "name": "用户123456",
-    "email": "user@example.com",
-    "phone": "13800138000",
-    "password": "123456",
-    "balance": 500.00,
-    "createdAt": "2025-03-15T08:30:00Z"
-  }
-];
+const defaultUsers = [];
 
 // 默认订单数据
-const defaultOrders = [
-  {
-    "id": "ORD-123456",
-    "userId": "user_1",
-    "platform": "douyin",
-    "platformName": "抖音",
-    "date": "2025-04-09",
-    "status": "completed",
-    "services": {
-      "views": 1000,
-      "likes": 200
-    },
-    "progress": 100,
-    "price": 140.00,
-    "url": "https://v.douyin.com/example1",
-    "createdAt": "2025-04-09T10:15:00Z"
-  },
-  {
-    "id": "ORD-123457",
-    "userId": "user_1",
-    "platform": "xiaohongshu",
-    "platformName": "小红书",
-    "date": "2025-04-08",
-    "status": "in_progress",
-    "services": {
-      "views": 2000,
-      "likes": 300,
-      "saves": 100
-    },
-    "progress": 65,
-    "price": 290.00,
-    "url": "https://www.xiaohongshu.com/example2",
-    "createdAt": "2025-04-08T14:30:00Z"
-  },
-  {
-    "id": "ORD-123458",
-    "userId": "user_1",
-    "platform": "bilibili",
-    "platformName": "哔哩哔哩",
-    "date": "2025-04-07",
-    "status": "pending",
-    "services": {
-      "views": 5000,
-      "likes": 500,
-      "shares": 200
-    },
-    "progress": 0,
-    "price": 670.00,
-    "url": "https://www.bilibili.com/example3",
-    "createdAt": "2025-04-07T09:45:00Z"
-  }
-];
+const defaultOrders = [];
 
 // 默认服务价格数据
-const defaultServices = {
-  views: { price: 0.1, name: '播放量' },
-  likes: { price: 0.2, name: '点赞数' },
-  completionRate: { price: 0.3, name: '完播率' },
-  shares: { price: 0.2, name: '分享数' },
-  saves: { price: 0.2, name: '收藏量' },
-  comments: { price: 0.3, name: '评论数' },
-  coins: { price: 0.3, name: '投币数' },
-  reads: { price: 0.1, name: '阅读量' }
-};
+const defaultServices = {};
 
 // Initialize local storage with default data if not exists
 const initializeStorage = () => {

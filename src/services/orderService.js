@@ -14,14 +14,31 @@ const getCurrentTimestamp = () => {
 
 // 计算订单总价
 const calculateOrderTotal = (services) => {
-  const pricing = {
-    likes: 0.001, // 点赞单价
-    views: 0.0005, // 播放量单价
-    comments: 0.002, // 评论单价
-    shares: 0.002, // 分享单价
-    followers: 0.005, // 粉丝单价
-    completionRate: 0.01, // 完播率单价 (每百分比)
-  };
+  // 从 localStorage 中获取服务价格
+  let pricing = {};
+  try {
+    const servicesData = localStorage.getItem('services');
+    if (servicesData) {
+      const servicesObj = JSON.parse(servicesData);
+      Object.keys(servicesObj).forEach(key => {
+        pricing[key] = servicesObj[key].price;
+      });
+    }
+  } catch (error) {
+    console.error('获取服务价格失败:', error);
+    // 默认价格
+    pricing = {
+      likes: 0.1,
+      views: 0.1,
+      comments: 0.1,
+      shares: 0.1,
+      followers: 0.1,
+      completionRate: 0.1,
+      saves: 0.1,
+      coins: 0.1,
+      reads: 0.1
+    };
+  }
 
   let total = 0;
   for (const [key, value] of Object.entries(services)) {
@@ -35,39 +52,87 @@ const calculateOrderTotal = (services) => {
 
 // 创建新订单
 const createOrder = (platform, services, videoUrl) => {
-  const orderId = generateOrderId();
-  const timestamp = getCurrentTimestamp();
-  const totalAmount = calculateOrderTotal(services);
+  try {
+    // 验证参数
+    if (!platform) {
+      throw new Error('平台不能为空');
+    }
 
-  // 计算总数量
-  const totalQuantity = Object.values(services).reduce((sum, value) => sum + value, 0);
+    if (!services || typeof services !== 'object' || Object.keys(services).length === 0) {
+      throw new Error('服务项不能为空');
+    }
 
-  // 创建订单对象
-  const order = {
-    orderId,
-    timestamp,
-    platform,
-    services,
-    videoUrl,
-    totalAmount,
-    status: 'waiting', // 等待处理
-    progress: 0,
-    totalQuantity,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
+    if (!videoUrl) {
+      throw new Error('视频链接不能为空');
+    }
 
-  // 保存到本地存储
-  saveOrder(order);
+    // 检查是否有有效的服务项
+    const hasValidServices = Object.values(services).some(value => value > 0);
+    if (!hasValidServices) {
+      throw new Error('至少需要选择一项服务');
+    }
 
-  return order;
+    const orderId = generateOrderId();
+    const timestamp = getCurrentTimestamp();
+    const totalAmount = calculateOrderTotal(services);
+
+    // 计算总数量
+    const totalQuantity = Object.values(services).reduce((sum, value) => sum + value, 0);
+
+    // 创建订单对象
+    const order = {
+      orderId,
+      timestamp,
+      platform,
+      services,
+      videoUrl,
+      totalAmount,
+      status: 'waiting', // 等待处理
+      progress: 0,
+      totalQuantity,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    // 保存到本地存储
+    const saveResult = saveOrder(order);
+
+    if (!saveResult) {
+      throw new Error('保存订单失败');
+    }
+
+    return order;
+  } catch (error) {
+    console.error('创建订单失败:', error);
+    throw error; // 将错误向上抛出，以便调用者可以处理
+  }
 };
 
 // 保存订单到本地存储
 const saveOrder = (order) => {
   try {
+    // 验证订单对象
+    if (!order || typeof order !== 'object') {
+      throw new Error('无效的订单对象');
+    }
+
+    if (!order.orderId) {
+      throw new Error('订单ID不能为空');
+    }
+
     // 获取现有订单
     const existingOrders = getOrders();
+
+    // 检查是否已存在相同订单ID
+    const isDuplicate = existingOrders.some(existingOrder =>
+      existingOrder.orderId === order.orderId || existingOrder.id === order.orderId
+    );
+
+    if (isDuplicate) {
+      console.warn('订单ID重复:', order.orderId);
+      // 生成新的订单ID
+      order.orderId = generateOrderId();
+    }
 
     // 添加新订单
     existingOrders.push(order);
@@ -86,7 +151,33 @@ const saveOrder = (order) => {
 const getOrders = () => {
   try {
     const orders = localStorage.getItem('orders');
-    return orders ? JSON.parse(orders) : [];
+    if (!orders) {
+      return [];
+    }
+
+    try {
+      const parsedOrders = JSON.parse(orders);
+
+      // 验证是否为数组
+      if (!Array.isArray(parsedOrders)) {
+        console.error('订单数据不是数组格式');
+        return [];
+      }
+
+      // 过滤无效的订单
+      return parsedOrders.filter(order => {
+        if (!order || typeof order !== 'object') {
+          return false;
+        }
+        // 至少要有订单ID或id字段
+        return order.orderId || order.id;
+      });
+    } catch (parseError) {
+      console.error('解析订单数据失败:', parseError);
+      // 如果解析失败，清除损坏的数据
+      localStorage.removeItem('orders');
+      return [];
+    }
   } catch (error) {
     console.error('获取订单失败:', error);
     return [];
@@ -95,17 +186,71 @@ const getOrders = () => {
 
 // 获取单个订单
 const getOrderById = (orderId) => {
-  const orders = getOrders();
-  return orders.find(order => order.orderId === orderId);
+  try {
+    if (!orderId) {
+      console.error('订单ID不能为空');
+      return null;
+    }
+
+    const orders = getOrders();
+
+    // 先尝试用orderId字段查找
+    let order = orders.find(order => order.orderId === orderId);
+
+    // 如果没找到，尝试用id字段查找
+    if (!order) {
+      order = orders.find(order => order.id === orderId);
+    }
+
+    return order || null;
+  } catch (error) {
+    console.error('获取订单详情失败:', error);
+    return null;
+  }
 };
 
 // 更新订单状态
 const updateOrderStatus = (orderId, status, progress = null) => {
   try {
+    // 验证参数
+    if (!orderId) {
+      console.error('订单ID不能为空');
+      return false;
+    }
+
+    if (!status) {
+      console.error('状态不能为空');
+      return false;
+    }
+
+    // 验证状态是否有效
+    const validStatuses = ['waiting', 'processing', 'completed', 'cancelled', 'pending', 'in_progress'];
+    if (!validStatuses.includes(status)) {
+      console.error('无效的订单状态:', status);
+      return false;
+    }
+
+    // 验证进度是否有效
+    if (progress !== null) {
+      const progressNum = Number(progress);
+      if (isNaN(progressNum) || progressNum < 0 || progressNum > 100) {
+        console.error('无效的进度值:', progress);
+        return false;
+      }
+    }
+
     const orders = getOrders();
-    const orderIndex = orders.findIndex(order => order.orderId === orderId);
+
+    // 先尝试用orderId字段查找
+    let orderIndex = orders.findIndex(order => order.orderId === orderId);
+
+    // 如果没找到，尝试用id字段查找
+    if (orderIndex === -1) {
+      orderIndex = orders.findIndex(order => order.id === orderId);
+    }
 
     if (orderIndex === -1) {
+      console.error('未找到订单:', orderId);
       return false;
     }
 
@@ -114,14 +259,19 @@ const updateOrderStatus = (orderId, status, progress = null) => {
 
     // 如果提供了进度，也更新进度
     if (progress !== null) {
-      orders[orderIndex].progress = progress;
+      orders[orderIndex].progress = Number(progress);
     }
 
     // 更新时间戳
     orders[orderIndex].updatedAt = getCurrentTimestamp();
 
     // 保存回本地存储
-    localStorage.setItem('orders', JSON.stringify(orders));
+    try {
+      localStorage.setItem('orders', JSON.stringify(orders));
+    } catch (storageError) {
+      console.error('保存订单数据失败:', storageError);
+      return false;
+    }
 
     return true;
   } catch (error) {
@@ -133,11 +283,36 @@ const updateOrderStatus = (orderId, status, progress = null) => {
 // 删除订单
 const deleteOrder = (orderId) => {
   try {
+    // 验证参数
+    if (!orderId) {
+      console.error('订单ID不能为空');
+      return false;
+    }
+
     let orders = getOrders();
-    orders = orders.filter(order => order.orderId !== orderId);
+
+    // 检查订单是否存在
+    const orderExists = orders.some(order =>
+      order.orderId === orderId || order.id === orderId
+    );
+
+    if (!orderExists) {
+      console.warn('要删除的订单不存在:', orderId);
+      return true; // 如果订单不存在，也返回true，因为结果上订单已经不存在了
+    }
+
+    // 过滤掉要删除的订单
+    orders = orders.filter(order =>
+      order.orderId !== orderId && order.id !== orderId
+    );
 
     // 保存回本地存储
-    localStorage.setItem('orders', JSON.stringify(orders));
+    try {
+      localStorage.setItem('orders', JSON.stringify(orders));
+    } catch (storageError) {
+      console.error('保存订单数据失败:', storageError);
+      return false;
+    }
 
     return true;
   } catch (error) {
@@ -148,42 +323,73 @@ const deleteOrder = (orderId) => {
 
 // 模拟订单进度更新（在实际应用中，这将由后端服务处理）
 const simulateOrderProgress = (orderId, callback) => {
-  const order = getOrderById(orderId);
+  try {
+    // 验证参数
+    if (!orderId) {
+      console.error('订单ID不能为空');
+      return null;
+    }
 
-  if (!order || order.status === 'completed' || order.status === 'cancelled') {
-    return;
+    const order = getOrderById(orderId);
+
+    if (!order) {
+      console.error('未找到订单:', orderId);
+      return null;
+    }
+
+    // 检查订单状态
+    if (order.status === 'completed' || order.status === 'cancelled') {
+      console.warn('订单已完成或已取消，无法模拟进度:', orderId);
+      return null;
+    }
+
+    // 更新订单状态为"处理中"
+    const updateResult = updateOrderStatus(orderId, 'processing', 0);
+
+    if (!updateResult) {
+      console.error('更新订单状态失败:', orderId);
+      return null;
+    }
+
+    // 设置初始进度
+    let progress = 0;
+
+    // 创建一个间隔，模拟进度更新
+    const interval = setInterval(() => {
+      try {
+        // 随机增加进度
+        progress += Math.random() * 10;
+
+        // 确保不超过100%
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+
+          // 更新订单状态为"已完成"
+          updateOrderStatus(orderId, 'completed', 100);
+        } else {
+          // 更新进度
+          updateOrderStatus(orderId, 'processing', Math.floor(progress));
+        }
+
+        // 如果提供了回调，调用它
+        if (callback && typeof callback === 'function') {
+          const updatedOrder = getOrderById(orderId);
+          if (updatedOrder) {
+            callback(updatedOrder);
+          }
+        }
+      } catch (intervalError) {
+        console.error('模拟进度更新失败:', intervalError);
+        clearInterval(interval);
+      }
+    }, 3000); // 每3秒更新一次
+
+    return interval;
+  } catch (error) {
+    console.error('模拟订单进度失败:', error);
+    return null;
   }
-
-  // 更新订单状态为"处理中"
-  updateOrderStatus(orderId, 'processing', 0);
-
-  // 设置初始进度
-  let progress = 0;
-
-  // 创建一个间隔，模拟进度更新
-  const interval = setInterval(() => {
-    // 随机增加进度
-    progress += Math.random() * 10;
-
-    // 确保不超过100%
-    if (progress >= 100) {
-      progress = 100;
-      clearInterval(interval);
-
-      // 更新订单状态为"已完成"
-      updateOrderStatus(orderId, 'completed', 100);
-    } else {
-      // 更新进度
-      updateOrderStatus(orderId, 'processing', Math.floor(progress));
-    }
-
-    // 如果提供了回调，调用它
-    if (callback) {
-      callback(getOrderById(orderId));
-    }
-  }, 3000); // 每3秒更新一次
-
-  return interval;
 };
 
 // 获取订单状态的中文描述
