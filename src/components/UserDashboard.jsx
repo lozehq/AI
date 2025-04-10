@@ -22,7 +22,13 @@ import {
   Divider,
   IconButton,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Snackbar,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -37,7 +43,9 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 
 // 导入数据管理工具
-import { orderManager } from '../utils/dataManager';
+import { orderManager, userManager } from '../utils/dataManager';
+import { cardKeyManager, formatCardKey } from '../utils/cardKeyManager';
+import { formatCurrency } from '../utils/formatters';
 
 // 空的订单数组
 const mockOrders = [];
@@ -85,6 +93,27 @@ const UserDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
+  // 个人信息表单状态
+  const [userForm, setUserForm] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+
+  // 密码表单状态
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // 提示消息状态
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
   // 加载用户数据
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
@@ -92,6 +121,13 @@ const UserDashboard = () => {
       try {
         const user = JSON.parse(storedUser);
         setCurrentUser(user);
+
+        // 初始化个人信息表单
+        setUserForm({
+          name: user.name || '',
+          email: user.email || '',
+          phone: user.phone || ''
+        });
 
         // 加载用户的订单
         // 在实际应用中，这里应该从后端获取用户的订单
@@ -126,28 +162,200 @@ const UserDashboard = () => {
     setSearchTerm(event.target.value);
   };
 
+  // 显示提示消息
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  // 关闭提示消息
+  const handleCloseSnackbar = () => {
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
+  };
+
+  // 处理个人信息表单变化
+  const handleUserFormChange = (e) => {
+    const { name, value } = e.target;
+    setUserForm({
+      ...userForm,
+      [name]: value
+    });
+  };
+
+  // 处理密码表单变化
+  const handlePasswordFormChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordForm({
+      ...passwordForm,
+      [name]: value
+    });
+  };
+
+  // 保存个人信息
+  const handleSaveUserInfo = () => {
+    if (!currentUser) return;
+
+    try {
+      // 更新用户信息
+      const updatedUser = {
+        ...currentUser,
+        name: userForm.name,
+        email: userForm.email,
+        phone: userForm.phone
+      };
+
+      // 使用userManager更新用户信息
+      const result = userManager.updateUser(currentUser.id, {
+        name: userForm.name,
+        email: userForm.email,
+        phone: userForm.phone
+      });
+
+      if (result) {
+        // 更新本地存储和状态
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        setCurrentUser(updatedUser);
+        showSnackbar('个人信息已成功更新', 'success');
+      } else {
+        showSnackbar('更新个人信息失败', 'error');
+      }
+    } catch (error) {
+      console.error('保存个人信息失败:', error);
+      showSnackbar('保存个人信息失败', 'error');
+    }
+  };
+
+  // 更新密码
+  const handleUpdatePassword = () => {
+    if (!currentUser) return;
+
+    // 验证表单
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      showSnackbar('请填写所有密码字段', 'warning');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showSnackbar('新密码与确认密码不一致', 'warning');
+      return;
+    }
+
+    // 验证当前密码
+    if (passwordForm.currentPassword !== currentUser.password) {
+      showSnackbar('当前密码不正确', 'error');
+      return;
+    }
+
+    try {
+      // 更新用户密码
+      const updatedUser = {
+        ...currentUser,
+        password: passwordForm.newPassword
+      };
+
+      // 使用userManager更新用户密码
+      const result = userManager.updateUser(currentUser.id, {
+        password: passwordForm.newPassword
+      });
+
+      if (result) {
+        // 更新本地存储和状态
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        setCurrentUser(updatedUser);
+
+        // 重置密码表单
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+
+        showSnackbar('密码已成功更新', 'success');
+      } else {
+        showSnackbar('更新密码失败', 'error');
+      }
+    } catch (error) {
+      console.error('更新密码失败:', error);
+      showSnackbar('更新密码失败', 'error');
+    }
+  };
+
+  // 卡密充值表单状态
+  const [cardKeyForm, setCardKeyForm] = useState({
+    code: ''
+  });
+
+  // 卡密充值对话框
+  const [rechargeDialog, setRechargeDialog] = useState(false);
+
+  // 处理卡密表单变化
+  const handleCardKeyFormChange = (e) => {
+    const { name, value } = e.target;
+    setCardKeyForm({
+      ...cardKeyForm,
+      [name]: value
+    });
+  };
+
   // 充值功能
   const handleRecharge = () => {
     if (!currentUser) return;
 
-    // 模拟充值操作
-    const updatedUser = {
-      ...currentUser,
-      balance: currentUser.balance + 100 // 每次充值100元
-    };
+    // 打开充值对话框
+    setCardKeyForm({ code: '' });
+    setRechargeDialog(true);
+  };
 
-    // 更新本地存储
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    setCurrentUser(updatedUser);
+  // 使用卡密充值
+  const handleUseCardKey = () => {
+    if (!currentUser) return;
 
-    // 显示成功消息
-    alert('充值成功！已添加100元到您的账户');
+    // 验证卡密
+    if (!cardKeyForm.code.trim()) {
+      showSnackbar('请输入卡密', 'warning');
+      return;
+    }
+
+    // 验证卡密是否有效
+    const validationResult = cardKeyManager.validateCardKey(cardKeyForm.code);
+    if (!validationResult.valid) {
+      showSnackbar(validationResult.message, 'error');
+      return;
+    }
+
+    // 使用卡密
+    const result = cardKeyManager.useCardKey(cardKeyForm.code, currentUser.id);
+    if (result.success) {
+      // 更新用户余额
+      const updatedUser = {
+        ...currentUser,
+        balance: (currentUser.balance || 0) + result.amount
+      };
+
+      // 更新本地存储
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+
+      // 关闭对话框
+      setRechargeDialog(false);
+
+      // 显示成功消息
+      showSnackbar(`充值成功！已添加${formatCurrency(result.amount)}到您的账户`, 'success');
+    } else {
+      showSnackbar(result.message, 'error');
+    }
   };
 
   // 提现功能
   const handleWithdraw = () => {
     if (!currentUser || currentUser.balance < 50) {
-      alert('余额不足，无法提现');
+      showSnackbar('余额不足，无法提现', 'warning');
       return;
     }
 
@@ -162,7 +370,7 @@ const UserDashboard = () => {
     setCurrentUser(updatedUser);
 
     // 显示成功消息
-    alert('提现申请已提交，50元将在1-3个工作日到账');
+    showSnackbar('提现申请已提交，50元将在1-3个工作日到账', 'success');
   };
 
   // Filter orders based on search term
@@ -177,7 +385,7 @@ const UserDashboard = () => {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Sidebar */}
-          <Grid sm={12} md={3}>
+          <Grid container size={{ xs: 12, md: 3 }}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -241,6 +449,7 @@ const UserDashboard = () => {
                 </CardContent>
               </Card>
 
+
               <Card className="glass-panel">
                 <Tabs
                   value={tabValue}
@@ -276,7 +485,7 @@ const UserDashboard = () => {
           </Grid>
 
           {/* Main content */}
-          <Grid sm={12} md={9}>
+          <Grid container size={{ xs: 12, md: 9 }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -399,8 +608,8 @@ const UserDashboard = () => {
                       可用余额
                     </Typography>
 
-                    <Grid container spacing={2}>
-                      <Grid xs={12} sm={6}>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      <Box sx={{ flex: 1 }}>
                         <Button
                           variant="contained"
                           color="primary"
@@ -409,8 +618,8 @@ const UserDashboard = () => {
                         >
                           充值
                         </Button>
-                      </Grid>
-                      <Grid xs={12} sm={6}>
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
                         <Button
                           variant="outlined"
                           color="secondary"
@@ -419,8 +628,8 @@ const UserDashboard = () => {
                         >
                           提现
                         </Button>
-                      </Grid>
-                    </Grid>
+                      </Box>
+                    </Box>
                   </Card>
 
                   <Typography variant="h6" gutterBottom>
@@ -452,37 +661,46 @@ const UserDashboard = () => {
                         个人信息
                       </Typography>
 
-                      <Grid container spacing={3}>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            label="用户名"
-                            defaultValue={currentUser?.name || ''}
-                            margin="normal"
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            label="电子邮箱"
-                            defaultValue={currentUser?.email || ""}
-                            margin="normal"
-                          />
-                        </Grid>
-                        <Grid item xs={12}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                          <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
+                            <TextField
+                              fullWidth
+                              label="用户名"
+                              name="name"
+                              value={userForm.name}
+                              onChange={handleUserFormChange}
+                              margin="normal"
+                            />
+                          </Box>
+                          <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
+                            <TextField
+                              fullWidth
+                              label="电子邮箱"
+                              name="email"
+                              value={userForm.email}
+                              onChange={handleUserFormChange}
+                              margin="normal"
+                            />
+                          </Box>
+                        </Box>
+                        <Box>
                           <TextField
                             fullWidth
                             label="手机号码"
-                            defaultValue={currentUser?.phone || ""}
+                            name="phone"
+                            value={userForm.phone}
+                            onChange={handleUserFormChange}
                             margin="normal"
                           />
-                        </Grid>
-                      </Grid>
+                        </Box>
+                      </Box>
 
                       <Box sx={{ mt: 3, textAlign: 'right' }}>
                         <Button
                           variant="contained"
                           color="primary"
+                          onClick={handleSaveUserInfo}
                         >
                           保存修改
                         </Button>
@@ -500,37 +718,49 @@ const UserDashboard = () => {
                         <Typography variant="body1" gutterBottom>
                           修改密码
                         </Typography>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <Box>
                             <TextField
                               fullWidth
                               label="当前密码"
+                              name="currentPassword"
                               type="password"
+                              value={passwordForm.currentPassword}
+                              onChange={handlePasswordFormChange}
                               margin="normal"
                             />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              label="新密码"
-                              type="password"
-                              margin="normal"
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              fullWidth
-                              label="确认新密码"
-                              type="password"
-                              margin="normal"
-                            />
-                          </Grid>
-                        </Grid>
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                            <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
+                              <TextField
+                                fullWidth
+                                label="新密码"
+                                name="newPassword"
+                                type="password"
+                                value={passwordForm.newPassword}
+                                onChange={handlePasswordFormChange}
+                                margin="normal"
+                              />
+                            </Box>
+                            <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
+                              <TextField
+                                fullWidth
+                                label="确认新密码"
+                                name="confirmPassword"
+                                type="password"
+                                value={passwordForm.confirmPassword}
+                                onChange={handlePasswordFormChange}
+                                margin="normal"
+                              />
+                            </Box>
+                          </Box>
+                        </Box>
 
                         <Box sx={{ mt: 3, textAlign: 'right' }}>
                           <Button
                             variant="contained"
                             color="primary"
+                            onClick={handleUpdatePassword}
                           >
                             更新密码
                           </Button>
@@ -544,6 +774,49 @@ const UserDashboard = () => {
           </Grid>
         </Grid>
       </Container>
+      {/* 卡密充值对话框 */}
+      <Dialog open={rechargeDialog} onClose={() => setRechargeDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>卡密充值</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              请输入您的充值卡密，卡密格式为16位字母数字组合，可以带有连字符。
+            </Typography>
+
+            <TextField
+              label="卡密"
+              fullWidth
+              name="code"
+              value={cardKeyForm.code}
+              onChange={handleCardKeyFormChange}
+              margin="normal"
+              placeholder="例如：ABCD-1234-EFGH-5678"
+              InputProps={{
+                sx: { fontFamily: 'monospace' }
+              }}
+            />
+
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              卡密仅能使用一次，请妥善保管您的卡密。
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRechargeDialog(false)}>取消</Button>
+          <Button onClick={handleUseCardKey} color="primary">充值</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

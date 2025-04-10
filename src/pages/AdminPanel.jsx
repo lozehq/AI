@@ -26,7 +26,13 @@ import {
   Divider,
   Card,
   CardContent,
-  Grid
+  Grid,
+  InputAdornment,
+  Chip,
+  LinearProgress,
+  Slider,
+  MenuItem,
+  Tooltip
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -41,12 +47,23 @@ import {
   Settings as SettingsIcon,
   Dashboard as DashboardIcon,
   Key as KeyIcon,
-  VpnKey as VpnKeyIcon
+  VpnKey as VpnKeyIcon,
+  ContentCopy as ContentCopyIcon,
+  PlayArrow as PlayArrowIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  OpenInNew as OpenInNewIcon,
+  Notifications as NotificationsIcon,
+  Info as InfoIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 
 // 导入数据管理工具
 import { userManager, orderManager, serviceManager } from '../utils/dataManager';
 import { inviteCodeManager } from '../utils/inviteCodeManager';
+import { cardKeyManager, formatCardKey } from '../utils/cardKeyManager';
+import { notificationManager } from '../utils/notificationManager';
 import { formatCurrency } from '../utils/formatters';
 
 const AdminPanel = () => {
@@ -56,6 +73,8 @@ const AdminPanel = () => {
   const [orders, setOrders] = useState([]);
   const [services, setServices] = useState({});
   const [inviteCodes, setInviteCodes] = useState([]);
+  const [cardKeys, setCardKeys] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -66,7 +85,13 @@ const AdminPanel = () => {
 
   // 编辑服务对话框
   const [editServiceDialog, setEditServiceDialog] = useState(false);
-  const [currentService, setCurrentService] = useState({ key: '', name: '', price: 0 });
+  const [currentService, setCurrentService] = useState({
+    key: '',
+    name: '',
+    price: 0,
+    minPurchase: 1,  // 最小购买量
+    maxPurchase: 0   // 最大购买量，0表示无限制
+  });
 
   // 编辑邀请码对话框
   const [editInviteCodeDialog, setEditInviteCodeDialog] = useState(false);
@@ -75,6 +100,37 @@ const AdminPanel = () => {
     isAdmin: false,
     usageLimit: 10,
     expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+  });
+
+  // 生成卡密对话框
+  const [createCardKeyDialog, setCreateCardKeyDialog] = useState(false);
+  const [cardKeyForm, setCardKeyForm] = useState({
+    amount: 100,
+    count: 1,
+    expiresInDays: 30
+  });
+
+  // 通知对话框
+  const [createNotificationDialog, setCreateNotificationDialog] = useState(false);
+  const [currentNotification, setCurrentNotification] = useState({
+    title: '',
+    content: '',
+    type: 'info',
+    isGlobal: true
+  });
+
+  // 新生成的卡密列表
+  const [newCardKeys, setNewCardKeys] = useState([]);
+
+  // 编辑订单对话框
+  const [editOrderDialog, setEditOrderDialog] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState({
+    id: '',
+    status: 'pending',
+    progress: 0,
+    platform: '',
+    totalAmount: 0,
+    createdAt: ''
   });
 
   // 检查当前用户是否是管理员
@@ -113,6 +169,14 @@ const AdminPanel = () => {
     // 加载邀请码数据
     const inviteCodeData = inviteCodeManager.getAllInviteCodes();
     setInviteCodes(inviteCodeData);
+
+    // 加载卡密数据
+    const cardKeyData = cardKeyManager.getAllCardKeys();
+    setCardKeys(cardKeyData);
+
+    // 加载通知数据
+    const notificationData = notificationManager.getAllNotifications();
+    setNotifications(notificationData);
 
     setIsLoading(false);
   };
@@ -193,13 +257,25 @@ const AdminPanel = () => {
 
   // 编辑服务
   const handleEditService = (key, service) => {
-    setCurrentService({ key, name: service.name, price: service.price });
+    setCurrentService({
+      key,
+      name: service.name,
+      price: service.price,
+      minPurchase: service.minPurchase || 1,
+      maxPurchase: service.maxPurchase || 0
+    });
     setEditServiceDialog(true);
   };
 
   // 添加新服务
   const handleAddService = () => {
-    setCurrentService({ key: '', name: '', price: 0 });
+    setCurrentService({
+      key: '',
+      name: '',
+      price: 0,
+      minPurchase: 1,
+      maxPurchase: 0
+    });
     setEditServiceDialog(true);
   };
 
@@ -217,7 +293,9 @@ const AdminPanel = () => {
       // 更新或添加服务
       updatedServices[currentService.key] = {
         name: currentService.name,
-        price: parseFloat(currentService.price)
+        price: parseFloat(currentService.price),
+        minPurchase: parseInt(currentService.minPurchase) || 1,
+        maxPurchase: parseInt(currentService.maxPurchase) || 0
       };
 
       // 保存到localStorage
@@ -265,6 +343,258 @@ const AdminPanel = () => {
         console.error('删除订单失败:', error);
         showSnackbar('删除订单失败', 'error');
       }
+    }
+  };
+
+  // 处理卡密表单变化
+  const handleCardKeyFormChange = (e) => {
+    const { name, value } = e.target;
+    setCardKeyForm({
+      ...cardKeyForm,
+      [name]: name === 'amount' || name === 'count' || name === 'expiresInDays' ? parseInt(value) : value
+    });
+  };
+
+  // 生成卡密
+  const handleCreateCardKey = () => {
+    try {
+      // 验证表单
+      if (!cardKeyForm.amount || cardKeyForm.amount <= 0) {
+        showSnackbar('金额必须大于0', 'warning');
+        return;
+      }
+
+      if (!cardKeyForm.count || cardKeyForm.count <= 0 || cardKeyForm.count > 100) {
+        showSnackbar('生成数量必须在1-100之间', 'warning');
+        return;
+      }
+
+      if (!cardKeyForm.expiresInDays || cardKeyForm.expiresInDays <= 0) {
+        showSnackbar('过期天数必须大于0', 'warning');
+        return;
+      }
+
+      // 生成卡密
+      const result = cardKeyManager.createCardKey(
+        cardKeyForm.amount,
+        cardKeyForm.count,
+        cardKeyForm.expiresInDays
+      );
+
+      if (result.success) {
+        showSnackbar(result.message, 'success');
+        setNewCardKeys(result.cardKeys);
+        loadData();
+      } else {
+        showSnackbar(result.message, 'error');
+      }
+    } catch (error) {
+      console.error('生成卡密失败:', error);
+      showSnackbar('生成卡密失败', 'error');
+    }
+  };
+
+  // 删除卡密
+  const handleDeleteCardKey = (id) => {
+    if (window.confirm('确定要删除此卡密吗？此操作不可撤销。')) {
+      try {
+        const result = cardKeyManager.deleteCardKey(id);
+        if (result) {
+          showSnackbar('卡密已删除', 'success');
+          loadData();
+        } else {
+          showSnackbar('删除卡密失败', 'error');
+        }
+      } catch (error) {
+        console.error('删除卡密失败:', error);
+        showSnackbar('删除卡密失败', 'error');
+      }
+    }
+  };
+
+  // 创建新通知
+  const handleCreateNotification = () => {
+    setCurrentNotification({
+      title: '',
+      content: '',
+      type: 'info',
+      isGlobal: true
+    });
+    setCreateNotificationDialog(true);
+  };
+
+  // 保存通知
+  const handleSaveNotification = () => {
+    try {
+      const { title, content, type, isGlobal } = currentNotification;
+
+      if (!title.trim()) {
+        showSnackbar('通知标题不能为空', 'error');
+        return;
+      }
+
+      if (!content.trim()) {
+        showSnackbar('通知内容不能为空', 'error');
+        return;
+      }
+
+      const result = notificationManager.createNotification(title, content, type, isGlobal);
+
+      if (result) {
+        showSnackbar('通知创建成功', 'success');
+        setCreateNotificationDialog(false);
+        loadData();
+      } else {
+        showSnackbar('创建通知失败', 'error');
+      }
+    } catch (error) {
+      console.error('创建通知失败:', error);
+      showSnackbar('创建通知失败', 'error');
+    }
+  };
+
+  // 删除通知
+  const handleDeleteNotification = (notificationId) => {
+    if (window.confirm('确定要删除此通知吗？此操作不可撤销。')) {
+      try {
+        const result = notificationManager.deleteNotification(notificationId);
+
+        if (result) {
+          showSnackbar('通知已删除', 'success');
+          loadData();
+        } else {
+          showSnackbar('删除通知失败', 'error');
+        }
+      } catch (error) {
+        console.error('删除通知失败:', error);
+        showSnackbar('删除通知失败', 'error');
+      }
+    }
+  };
+
+  // 编辑订单
+  const handleEditOrder = (order) => {
+    setCurrentOrder({
+      id: order.id || order.orderId,
+      status: order.status || 'pending',
+      progress: order.progress || 0,
+      platform: order.platform || '',
+      totalAmount: order.totalAmount || order.price || 0,
+      createdAt: order.createdAt || new Date().toISOString(),
+      videoUrl: order.videoUrl || order.url || '',
+      userId: order.userId || '',
+      services: order.services || {}
+    });
+    setEditOrderDialog(true);
+  };
+
+  // 保存订单编辑
+  const handleSaveOrderEdit = () => {
+    try {
+      // 验证表单
+      if (!currentOrder.id) {
+        showSnackbar('订单ID不能为空', 'error');
+        return;
+      }
+
+      // 验证进度值
+      const progress = parseInt(currentOrder.progress);
+      if (isNaN(progress) || progress < 0 || progress > 100) {
+        showSnackbar('进度必须是0-100之间的数字', 'error');
+        return;
+      }
+
+      // 更新订单状态
+      const result = orderManager.updateOrderStatus(
+        currentOrder.id,
+        currentOrder.status,
+        progress
+      );
+
+      if (result) {
+        showSnackbar('订单已更新', 'success');
+        setEditOrderDialog(false);
+        loadData();
+      } else {
+        showSnackbar('更新订单失败', 'error');
+      }
+    } catch (error) {
+      console.error('更新订单失败:', error);
+      showSnackbar('更新订单失败', 'error');
+    }
+  };
+
+  // 处理订单状态变化
+  const handleOrderStatusChange = (e) => {
+    const { value } = e.target;
+    setCurrentOrder({
+      ...currentOrder,
+      status: value,
+      // 如果状态是已完成，自动设置进度为100%
+      progress: value === 'completed' ? 100 : currentOrder.progress
+    });
+  };
+
+  // 处理订单进度变化
+  const handleOrderProgressChange = (e) => {
+    const { value } = e.target;
+    const progress = parseInt(value);
+    if (!isNaN(progress)) {
+      setCurrentOrder({
+        ...currentOrder,
+        progress,
+        // 如果进度是100%，自动设置状态为已完成
+        status: progress === 100 ? 'completed' :
+                progress > 0 ? 'in_progress' : currentOrder.status
+      });
+    }
+  };
+
+  // 快速开始处理订单
+  const handleStartProcessing = (orderId) => {
+    try {
+      const result = orderManager.updateOrderStatus(orderId, 'in_progress', 10);
+      if (result) {
+        showSnackbar('订单已开始处理', 'success');
+        loadData();
+      } else {
+        showSnackbar('更新订单状态失败', 'error');
+      }
+    } catch (error) {
+      console.error('开始处理订单失败:', error);
+      showSnackbar('开始处理订单失败', 'error');
+    }
+  };
+
+  // 快速完成订单
+  const handleCompleteOrder = (orderId) => {
+    try {
+      const result = orderManager.updateOrderStatus(orderId, 'completed', 100);
+      if (result) {
+        showSnackbar('订单已完成', 'success');
+        loadData();
+      } else {
+        showSnackbar('更新订单状态失败', 'error');
+      }
+    } catch (error) {
+      console.error('完成订单失败:', error);
+      showSnackbar('完成订单失败', 'error');
+    }
+  };
+
+  // 快速取消订单
+  const handleCancelOrder = (orderId) => {
+    try {
+      const result = orderManager.updateOrderStatus(orderId, 'failed', 0);
+      if (result) {
+        showSnackbar('订单已取消', 'success');
+        loadData();
+      } else {
+        showSnackbar('更新订单状态失败', 'error');
+      }
+    } catch (error) {
+      console.error('取消订单失败:', error);
+      showSnackbar('取消订单失败', 'error');
     }
   };
 
@@ -376,6 +706,8 @@ const AdminPanel = () => {
               <Tab icon={<ShoppingCartIcon />} label="订单管理" />
               <Tab icon={<SettingsIcon />} label="服务设置" />
               <Tab icon={<KeyIcon />} label="邀请码管理" />
+              <Tab icon={<VpnKeyIcon />} label="卡密管理" />
+              <Tab icon={<NotificationsIcon />} label="通知管理" />
               <Tab icon={<DashboardIcon />} label="系统概览" />
             </Tabs>
           </Box>
@@ -478,18 +810,102 @@ const AdminPanel = () => {
                         <TableRow key={order.orderId || order.id}>
                           <TableCell>{order.orderId || order.id}</TableCell>
                           <TableCell>{order.platform}</TableCell>
-                          <TableCell>{order.status}</TableCell>
-                          <TableCell>{order.progress || 0}%</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={order.status === 'completed' ? '已完成' :
+                                    order.status === 'in_progress' ? '进行中' :
+                                    order.status === 'pending' ? '待处理' :
+                                    order.status === 'failed' ? '失败' : order.status}
+                              color={order.status === 'completed' ? 'success' :
+                                    order.status === 'in_progress' ? 'info' :
+                                    order.status === 'pending' ? 'warning' :
+                                    order.status === 'failed' ? 'error' : 'default'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={order.progress || 0}
+                                sx={{
+                                  flexGrow: 1,
+                                  height: 8,
+                                  borderRadius: 4,
+                                  bgcolor: 'rgba(0, 0, 0, 0.2)',
+                                  '& .MuiLinearProgress-bar': {
+                                    bgcolor: order.status === 'completed' ? 'success.main' :
+                                             order.status === 'in_progress' ? 'info.main' :
+                                             order.status === 'pending' ? 'warning.main' :
+                                             order.status === 'failed' ? 'error.main' : 'primary.main',
+                                  }
+                                }}
+                              />
+                              <Typography variant="body2">{order.progress || 0}%</Typography>
+                            </Box>
+                          </TableCell>
                           <TableCell>{formatCurrency(order.totalAmount || order.price || 0)}</TableCell>
                           <TableCell>{new Date(order.createdAt).toLocaleString()}</TableCell>
                           <TableCell>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteOrder(order.orderId || order.id)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              {/* 快速操作按钮 */}
+                              {order.status === 'pending' && (
+                                <Tooltip title="开始处理">
+                                  <IconButton
+                                    size="small"
+                                    color="info"
+                                    onClick={() => handleStartProcessing(order.orderId || order.id)}
+                                  >
+                                    <PlayArrowIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+
+                              {(order.status === 'pending' || order.status === 'in_progress') && (
+                                <Tooltip title="完成订单">
+                                  <IconButton
+                                    size="small"
+                                    color="success"
+                                    onClick={() => handleCompleteOrder(order.orderId || order.id)}
+                                  >
+                                    <CheckCircleIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+
+                              {(order.status === 'pending' || order.status === 'in_progress') && (
+                                <Tooltip title="取消订单">
+                                  <IconButton
+                                    size="small"
+                                    color="warning"
+                                    onClick={() => handleCancelOrder(order.orderId || order.id)}
+                                  >
+                                    <CancelIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+
+                              {/* 编辑和删除按钮 */}
+                              <Tooltip title="编辑订单">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => handleEditOrder(order)}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+
+                              <Tooltip title="删除订单">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleDeleteOrder(order.orderId || order.id)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       ))
@@ -521,13 +937,15 @@ const AdminPanel = () => {
                       <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>服务标识</TableCell>
                       <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>服务名称</TableCell>
                       <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>单价(元)</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>最小购买量</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>最大购买量</TableCell>
                       <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>操作</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {Object.keys(services).length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} align="center">
+                        <TableCell colSpan={6} align="center">
                           <Typography variant="body1" color="text.secondary">
                             暂无服务数据
                           </Typography>
@@ -539,6 +957,10 @@ const AdminPanel = () => {
                           <TableCell>{key}</TableCell>
                           <TableCell>{service.name}</TableCell>
                           <TableCell>{service.price}</TableCell>
+                          <TableCell>{service.minPurchase || 1}</TableCell>
+                          <TableCell>
+                            {service.maxPurchase ? service.maxPurchase : '无限制'}
+                          </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                               <IconButton
@@ -664,11 +1086,216 @@ const AdminPanel = () => {
             </Box>
           )}
 
-          {/* 系统概览 */}
+          {/* 卡密管理 */}
           {tabValue === 4 && (
             <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+                <Typography variant="h5" component="h2" color="primary.main">
+                  卡密管理
+                </Typography>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setCardKeyForm({
+                      amount: 100,
+                      count: 1,
+                      expiresInDays: 30
+                    });
+                    setNewCardKeys([]);
+                    setCreateCardKeyDialog(true);
+                  }}
+                >
+                  生成卡密
+                </Button>
+              </Box>
+
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>卡密</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>金额</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>状态</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>创建时间</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>过期时间</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>操作</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {cardKeys.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          <Typography variant="body1" color="text.secondary">
+                            暂无卡密数据
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      cardKeys.map((cardKey) => (
+                        <TableRow key={cardKey.id}>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontFamily: 'monospace',
+                                fontWeight: 'bold',
+                                color: cardKey.isUsed ? 'text.disabled' : 'primary.main'
+                              }}
+                            >
+                              {formatCardKey(cardKey.code)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography color={cardKey.isUsed ? 'text.disabled' : 'primary.main'} fontWeight="bold">
+                              {formatCurrency(cardKey.amount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {cardKey.isUsed ? (
+                              <Typography color="text.disabled">已使用</Typography>
+                            ) : (
+                              <Typography color="success.main">未使用</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {new Date(cardKey.createdAt).toLocaleString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {new Date(cardKey.expiresAt).toLocaleString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteCardKey(cardKey.id)}
+                              disabled={cardKey.isUsed}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+
+          {/* 通知管理 */}
+          {tabValue === 5 && (
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+                <Typography variant="h5" component="h2" color="primary.main">
+                  通知管理
+                </Typography>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={handleCreateNotification}
+                >
+                  发送通知
+                </Button>
+              </Box>
+
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>标题</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>内容</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>类型</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>创建时间</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>操作</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {notifications.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography variant="body1" color="text.secondary">
+                            暂无通知数据
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      notifications.map((notification) => {
+                        // 根据通知类型选择图标和颜色
+                        let typeIcon, typeColor;
+                        switch (notification.type) {
+                          case 'success':
+                            typeIcon = <CheckCircleIcon />;
+                            typeColor = 'success.main';
+                            break;
+                          case 'warning':
+                            typeIcon = <WarningIcon />;
+                            typeColor = 'warning.main';
+                            break;
+                          case 'error':
+                            typeIcon = <ErrorIcon />;
+                            typeColor = 'error.main';
+                            break;
+                          default: // info
+                            typeIcon = <InfoIcon />;
+                            typeColor = 'info.main';
+                        }
+
+                        return (
+                          <TableRow key={notification.id}>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="bold">
+                                {notification.title}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {notification.content}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', color: typeColor }}>
+                                {typeIcon}
+                                <Typography variant="body2" sx={{ ml: 1, textTransform: 'capitalize' }}>
+                                  {notification.type}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary">
+                                {new Date(notification.createdAt).toLocaleString()}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDeleteNotification(notification.id)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+
+          {/* 系统概览 */}
+          {tabValue === 6 && (
+            <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
+                <Grid container size={{ xs: 12, md: 4 }}>
                   <Card sx={{
                     bgcolor: 'rgba(10, 25, 41, 0.7)',
                     border: '1px solid rgba(60, 255, 220, 0.2)',
@@ -695,7 +1322,7 @@ const AdminPanel = () => {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid container size={{ xs: 12, md: 4 }}>
                   <Card sx={{
                     bgcolor: 'rgba(10, 25, 41, 0.7)',
                     border: '1px solid rgba(60, 255, 220, 0.2)',
@@ -725,7 +1352,7 @@ const AdminPanel = () => {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid container size={{ xs: 12, md: 4 }}>
                   <Card sx={{
                     bgcolor: 'rgba(10, 25, 41, 0.7)',
                     border: '1px solid rgba(60, 255, 220, 0.2)',
@@ -753,7 +1380,7 @@ const AdminPanel = () => {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid container size={{ xs: 12, md: 4 }}>
                   <Card sx={{
                     bgcolor: 'rgba(10, 25, 41, 0.7)',
                     border: '1px solid rgba(60, 255, 220, 0.2)',
@@ -849,12 +1476,14 @@ const AdminPanel = () => {
               value={currentService.key || ''}
               onChange={(e) => setCurrentService({ ...currentService, key: e.target.value })}
               disabled={!!currentService.key} // 如果是编辑现有服务，不允许修改key
+              helperText="服务的唯一标识，如views、likes等"
             />
             <TextField
               label="服务名称"
               fullWidth
               value={currentService.name || ''}
               onChange={(e) => setCurrentService({ ...currentService, name: e.target.value })}
+              helperText="服务的显示名称，如播放量、点赞数等"
             />
             <TextField
               label="单价"
@@ -862,7 +1491,32 @@ const AdminPanel = () => {
               type="number"
               value={currentService.price || 0}
               onChange={(e) => setCurrentService({ ...currentService, price: parseFloat(e.target.value) })}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">¥</InputAdornment>,
+              }}
+              helperText="每单位服务的价格"
             />
+
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="最小购买量"
+                fullWidth
+                type="number"
+                value={currentService.minPurchase || 1}
+                onChange={(e) => setCurrentService({ ...currentService, minPurchase: parseInt(e.target.value) || 1 })}
+                inputProps={{ min: 1 }}
+                helperText="单次购买的最小数量"
+              />
+              <TextField
+                label="最大购买量"
+                fullWidth
+                type="number"
+                value={currentService.maxPurchase || 0}
+                onChange={(e) => setCurrentService({ ...currentService, maxPurchase: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+                helperText="单次购买的最大数量（0表示无限制）"
+              />
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -942,6 +1596,368 @@ const AdminPanel = () => {
           >
             保存
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 生成卡密对话框 */}
+      <Dialog open={createCardKeyDialog} onClose={() => setCreateCardKeyDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>生成卡密</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="卡密金额"
+              fullWidth
+              type="number"
+              name="amount"
+              value={cardKeyForm.amount}
+              onChange={handleCardKeyFormChange}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">¥</InputAdornment>,
+              }}
+              helperText="卡密充值金额"
+            />
+            <TextField
+              label="生成数量"
+              fullWidth
+              type="number"
+              name="count"
+              value={cardKeyForm.count}
+              onChange={handleCardKeyFormChange}
+              helperText="一次生成的卡密数量，最多100个"
+              inputProps={{ min: 1, max: 100 }}
+            />
+            <TextField
+              label="过期天数"
+              fullWidth
+              type="number"
+              name="expiresInDays"
+              value={cardKeyForm.expiresInDays}
+              onChange={handleCardKeyFormChange}
+              helperText="卡密有效期（天）"
+              inputProps={{ min: 1 }}
+            />
+          </Box>
+
+          {newCardKeys.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle1" gutterBottom color="primary.main">
+                新生成的卡密：
+              </Typography>
+              <Paper sx={{ p: 2, bgcolor: 'rgba(3, 11, 23, 0.7)', maxHeight: 200, overflow: 'auto' }}>
+                {newCardKeys.map((key, index) => (
+                  <Typography
+                    key={key.id}
+                    variant="body2"
+                    sx={{
+                      fontFamily: 'monospace',
+                      mb: 1,
+                      color: 'primary.main',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {index + 1}. {formatCardKey(key.code)} - {formatCurrency(key.amount)}
+                  </Typography>
+                ))}
+              </Paper>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                请立即复制保存这些卡密，关闭对话框后将无法再次查看完整卡密。
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateCardKeyDialog(false)}>关闭</Button>
+          <Button onClick={handleCreateCardKey} color="primary" disabled={newCardKeys.length > 0}>
+            生成卡密
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 通知创建对话框 */}
+      <Dialog open={createNotificationDialog} onClose={() => setCreateNotificationDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>发送新通知</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="通知标题"
+              fullWidth
+              value={currentNotification.title}
+              onChange={(e) => setCurrentNotification({ ...currentNotification, title: e.target.value })}
+              placeholder="输入通知标题"
+              required
+            />
+
+            <TextField
+              label="通知内容"
+              fullWidth
+              multiline
+              rows={4}
+              value={currentNotification.content}
+              onChange={(e) => setCurrentNotification({ ...currentNotification, content: e.target.value })}
+              placeholder="输入通知内容"
+              required
+            />
+
+            <TextField
+              select
+              label="通知类型"
+              fullWidth
+              value={currentNotification.type}
+              onChange={(e) => setCurrentNotification({ ...currentNotification, type: e.target.value })}
+            >
+              <MenuItem value="info">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <InfoIcon sx={{ mr: 1, color: 'info.main' }} />
+                  信息
+                </Box>
+              </MenuItem>
+              <MenuItem value="success">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <CheckCircleIcon sx={{ mr: 1, color: 'success.main' }} />
+                  成功
+                </Box>
+              </MenuItem>
+              <MenuItem value="warning">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <WarningIcon sx={{ mr: 1, color: 'warning.main' }} />
+                  警告
+                </Box>
+              </MenuItem>
+              <MenuItem value="error">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <ErrorIcon sx={{ mr: 1, color: 'error.main' }} />
+                  错误
+                </Box>
+              </MenuItem>
+            </TextField>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={currentNotification.isGlobal}
+                  onChange={(e) => setCurrentNotification({ ...currentNotification, isGlobal: e.target.checked })}
+                  color="primary"
+                />
+              }
+              label="全局通知（所有用户可见）"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateNotificationDialog(false)}>取消</Button>
+          <Button onClick={handleSaveNotification} color="primary" variant="contained">发送通知</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 订单编辑对话框 */}
+      <Dialog open={editOrderDialog} onClose={() => setEditOrderDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>编辑订单</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="订单ID"
+              fullWidth
+              value={currentOrder.id}
+              disabled
+              margin="normal"
+            />
+
+            <TextField
+              label="平台"
+              fullWidth
+              value={currentOrder.platform}
+              disabled
+              margin="normal"
+            />
+
+            <TextField
+              label="视频链接"
+              fullWidth
+              value={currentOrder.videoUrl}
+              margin="normal"
+              InputProps={{
+                readOnly: true,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Tooltip title="复制链接">
+                      <IconButton
+                        edge="end"
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentOrder.videoUrl);
+                          showSnackbar('链接已复制到剪贴板', 'success');
+                        }}
+                      >
+                        <ContentCopyIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    {currentOrder.videoUrl && (
+                      <Tooltip title="在新标签页打开">
+                        <IconButton
+                          edge="end"
+                          onClick={() => window.open(currentOrder.videoUrl, '_blank')}
+                        >
+                          <OpenInNewIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <TextField
+              select
+              label="状态"
+              fullWidth
+              value={currentOrder.status}
+              onChange={handleOrderStatusChange}
+              margin="normal"
+            >
+              <MenuItem value="pending">待处理</MenuItem>
+              <MenuItem value="in_progress">进行中</MenuItem>
+              <MenuItem value="completed">已完成</MenuItem>
+              <MenuItem value="failed">失败</MenuItem>
+            </TextField>
+
+            <Box>
+              <Typography variant="body2" gutterBottom>
+                进度: {currentOrder.progress}%
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Slider
+                  value={currentOrder.progress}
+                  onChange={handleOrderProgressChange}
+                  aria-labelledby="order-progress-slider"
+                  valueLabelDisplay="auto"
+                  step={5}
+                  marks
+                  min={0}
+                  max={100}
+                  sx={{
+                    color: currentOrder.status === 'completed' ? 'success.main' :
+                           currentOrder.status === 'in_progress' ? 'info.main' :
+                           currentOrder.status === 'pending' ? 'warning.main' :
+                           currentOrder.status === 'failed' ? 'error.main' : 'primary.main',
+                  }}
+                />
+                <TextField
+                  type="number"
+                  value={currentOrder.progress}
+                  onChange={handleOrderProgressChange}
+                  inputProps={{ min: 0, max: 100, step: 5 }}
+                  sx={{ width: 80 }}
+                />
+              </Box>
+            </Box>
+
+            <TextField
+              label="金额"
+              fullWidth
+              value={formatCurrency(currentOrder.totalAmount)}
+              disabled
+              margin="normal"
+            />
+
+            <TextField
+              label="创建时间"
+              fullWidth
+              value={new Date(currentOrder.createdAt).toLocaleString()}
+              disabled
+              margin="normal"
+            />
+
+            {/* 服务详情 */}
+            {currentOrder.services && Object.keys(currentOrder.services).length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  服务详情
+                </Typography>
+                <TableContainer component={Paper} sx={{ bgcolor: 'rgba(0, 0, 0, 0.2)' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>服务类型</TableCell>
+                        <TableCell align="right">数量</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(currentOrder.services)
+                        .filter(([_, value]) => value > 0)
+                        .map(([key, value]) => {
+                          const serviceNames = {
+                            likes: '点赞数',
+                            views: '播放量',
+                            comments: '评论数',
+                            shares: '分享数',
+                            followers: '粉丝数',
+                            completionRate: '完播率',
+                            saves: '收藏数'
+                          };
+                          return (
+                            <TableRow key={key}>
+                              <TableCell>{serviceNames[key] || key}</TableCell>
+                              <TableCell align="right">{value}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+          <Box>
+            {currentOrder.status === 'pending' && (
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<PlayArrowIcon />}
+                onClick={() => {
+                  handleStartProcessing(currentOrder.id);
+                  setEditOrderDialog(false);
+                }}
+                sx={{ mr: 1 }}
+              >
+                开始处理
+              </Button>
+            )}
+
+            {(currentOrder.status === 'pending' || currentOrder.status === 'in_progress') && (
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<CheckCircleIcon />}
+                onClick={() => {
+                  handleCompleteOrder(currentOrder.id);
+                  setEditOrderDialog(false);
+                }}
+                sx={{ mr: 1 }}
+              >
+                完成订单
+              </Button>
+            )}
+
+            {(currentOrder.status === 'pending' || currentOrder.status === 'in_progress') && (
+              <Button
+                variant="contained"
+                color="warning"
+                startIcon={<CancelIcon />}
+                onClick={() => {
+                  handleCancelOrder(currentOrder.id);
+                  setEditOrderDialog(false);
+                }}
+              >
+                取消订单
+              </Button>
+            )}
+          </Box>
+
+          <Box>
+            <Button onClick={() => setEditOrderDialog(false)}>关闭</Button>
+            <Button onClick={handleSaveOrderEdit} color="primary" variant="contained">保存更改</Button>
+          </Box>
         </DialogActions>
       </Dialog>
 

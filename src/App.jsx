@@ -9,6 +9,7 @@ import ServiceForm from './components/ServiceForm'
 import UserDashboard from './components/UserDashboard'
 import OrdersPage from './pages/OrdersPage'
 import AdminPanel from './pages/AdminPanel'
+import NotificationsPage from './pages/NotificationsPage'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -63,6 +64,7 @@ function App() {
               <Route path="/dashboard" element={<UserDashboard />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/service" element={<ServiceForm />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/admin" element={
                 <ProtectedRoute adminOnly={true}>
                   <AdminPanel />

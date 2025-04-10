@@ -38,6 +38,7 @@ import AuthDialog from './AuthDialog';
 
 // 导入用户管理工具
 import { userManager } from '../utils/dataManager';
+import { notificationManager } from '../utils/notificationManager';
 
 const Header = () => {
   const location = useLocation();
@@ -60,11 +61,31 @@ const Header = () => {
   // 通知菜单状态
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const notificationMenuOpen = Boolean(notificationAnchorEl);
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: '您的订单 ORD-123456 已完成', read: false },
-    { id: 2, message: '系统已成功充值 ¥100.00', read: false },
-    { id: 3, message: '新功能上线：支持抖音平台', read: true }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // 加载通知
+  const loadNotifications = () => {
+    if (!isLoggedIn || !currentUser) {
+      console.log('用户未登录或用户信息不存在，无法加载通知');
+      return;
+    }
+
+    const allNotifications = notificationManager.getAllNotifications();
+    console.log('从 notificationManager 获取的通知：', allNotifications);
+
+    const userReadStatus = notificationManager.getUserReadStatus(currentUser.id);
+    console.log('用户已读通知状态：', userReadStatus);
+
+    // 过滤出未读通知
+    const unreadNotifications = allNotifications.filter(notification => {
+      return !userReadStatus.includes(notification.id);
+    });
+    console.log('未读通知数量：', unreadNotifications.length);
+
+    setNotifications(allNotifications);
+    setUnreadCount(unreadNotifications.length);
+  };
 
   // 初始化时检查用户登录状态
   useEffect(() => {
@@ -83,6 +104,17 @@ const Header = () => {
       }
     }
   }, []);
+
+  // 当用户登录状态变化时加载通知
+  useEffect(() => {
+    if (isLoggedIn && currentUser) {
+      loadNotifications();
+
+      // 每分钟刷新一次通知
+      const interval = setInterval(loadNotifications, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn, currentUser]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -123,13 +155,39 @@ const Header = () => {
   // 打开通知菜单
   const handleOpenNotificationMenu = (event) => {
     setNotificationAnchorEl(event.currentTarget);
-    // 标记所有通知为已读
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
   // 关闭通知菜单
   const handleCloseNotificationMenu = () => {
     setNotificationAnchorEl(null);
+  };
+
+  // 标记所有通知为已读
+  const handleMarkAllAsRead = () => {
+    if (currentUser) {
+      notificationManager.markAllAsRead(currentUser.id);
+      loadNotifications();
+    }
+  };
+
+  // 标记单个通知为已读
+  const handleMarkAsRead = (notificationId) => {
+    console.log('标记通知为已读：', notificationId);
+    if (currentUser) {
+      const result = notificationManager.markAsRead(currentUser.id, notificationId);
+      console.log('标记通知已读结果：', result);
+      loadNotifications();
+    } else {
+      console.log('用户未登录，无法标记通知为已读');
+    }
+  };
+
+  // 检查通知是否已读
+  const isNotificationRead = (notificationId) => {
+    if (!currentUser) return true;
+
+    const userReadStatus = notificationManager.getUserReadStatus(currentUser.id);
+    return userReadStatus.includes(notificationId);
   };
 
   // 注销
@@ -141,8 +199,7 @@ const Header = () => {
     handleCloseUserMenu();
   };
 
-  // 未读通知数量
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // 未读通知数量已由loadNotifications函数设置
 
   // 导航链接
   const navLinks = [
@@ -315,9 +372,9 @@ const Header = () => {
             )}
 
             <ListItem
-              button
               onClick={handleLogout}
               sx={{
+                button: true,
                 borderRadius: 1,
                 mx: 1,
                 mb: 1,
@@ -339,9 +396,9 @@ const Header = () => {
           </>
         ) : (
           <ListItem
-            button
             onClick={handleOpenAuthDialog}
             sx={{
+              button: true,
               borderRadius: 1,
               mx: 1,
               mb: 1,
@@ -593,6 +650,7 @@ const Header = () => {
 
                   {isLoggedIn ? (
                     <>
+
                       <Tooltip title="账户设置">
                         <IconButton
                           onClick={handleOpenUserMenu}
@@ -725,34 +783,55 @@ const Header = () => {
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid rgba(60, 255, 220, 0.1)' }}>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(60, 255, 220, 0.1)' }}>
           <Typography variant="subtitle1" fontWeight="bold">
             通知
           </Typography>
+
+          {unreadCount > 0 && (
+            <Button
+              size="small"
+              onClick={handleMarkAllAsRead}
+              sx={{ color: 'primary.main', fontSize: '0.75rem' }}
+            >
+              全部已读
+            </Button>
+          )}
         </Box>
 
         {notifications.length > 0 ? (
           <List sx={{ py: 0 }}>
-            {notifications.map((notification) => (
-              <ListItem
-                key={notification.id}
-                sx={{
-                  px: 2,
-                  py: 1.5,
-                  borderBottom: '1px solid rgba(60, 255, 220, 0.05)',
-                  bgcolor: notification.read ? 'transparent' : 'rgba(60, 255, 220, 0.05)',
-                }}
-              >
-                <ListItemText
-                  primary={notification.message}
-                  primaryTypographyProps={{
-                    variant: 'body2',
-                    color: notification.read ? 'text.secondary' : 'text.primary',
-                    fontWeight: notification.read ? 'normal' : 'medium',
+            {notifications.map((notification) => {
+              const isRead = isNotificationRead(notification.id);
+              return (
+                <ListItem
+                  key={notification.id}
+                  button={true}
+                  onClick={() => handleMarkAsRead(notification.id)}
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    borderBottom: '1px solid rgba(60, 255, 220, 0.05)',
+                    bgcolor: isRead ? 'transparent' : 'rgba(60, 255, 220, 0.05)',
                   }}
-                />
-              </ListItem>
-            ))}
+                >
+                  <ListItemText
+                    primary={notification.title}
+                    secondary={notification.content}
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      color: isRead ? 'text.secondary' : 'primary.main',
+                      fontWeight: isRead ? 'normal' : 'medium',
+                    }}
+                    secondaryTypographyProps={{
+                      variant: 'caption',
+                      color: 'text.secondary',
+                      noWrap: true
+                    }}
+                  />
+                </ListItem>
+              );
+            })}
           </List>
         ) : (
           <Box sx={{ p: 3, textAlign: 'center' }}>

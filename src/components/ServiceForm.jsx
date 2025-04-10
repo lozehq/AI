@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -26,6 +26,9 @@ import LinkIcon from '@mui/icons-material/Link';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import PaymentIcon from '@mui/icons-material/Payment';
+
+// 导入自定义组件
+import ServiceSelectionCard from './ServiceSelectionCard';
 import { useNavigate } from 'react-router-dom';
 
 // Import utility functions
@@ -40,26 +43,97 @@ const ServiceForm = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [detectedPlatform, setDetectedPlatform] = useState(null);
   const [isDetecting, setIsDetecting] = useState(false);
-  const [selectedServices, setSelectedServices] = useState({
-    views: 0,
-    likes: 0,
-    completionRate: 0,
-    shares: 0,
-    saves: 0
-  });
+  // 初始化选中的服务
+  const [selectedServices, setSelectedServices] = useState({});
+
+  // 初始化选中的服务
+  useEffect(() => {
+    // 初始化默认服务
+    const defaultServices = {
+      views: 0,
+      likes: 0,
+      completionRate: 0,
+      shares: 0,
+      saves: 0
+    };
+
+    // 从localStorage获取自定义服务
+    try {
+      const servicesData = localStorage.getItem('services');
+      if (servicesData) {
+        const services = JSON.parse(servicesData);
+        // 将服务添加到默认服务对象中
+        Object.keys(services).forEach(key => {
+          defaultServices[key] = 0;
+        });
+      }
+    } catch (error) {
+      console.error('加载服务数据失败:', error);
+    }
+
+    setSelectedServices(defaultServices);
+  }, []);
   const [totalPrice, setTotalPrice] = useState(0);
   const [error, setError] = useState('');
   const [orderCreated, setOrderCreated] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState(null);
 
-  // Service pricing (in Yuan per unit)
-  const pricing = {
+  // 从localStorage获取服务价格
+  const [pricing, setPricing] = useState({
     views: 0.1,
     likes: 0.2,
     completionRate: 0.3,
     shares: 0.2,
     saves: 0.2
+  });
+
+  // 存储服务数据
+  const [servicesData, setServicesData] = useState({});
+
+  // 获取服务的最小购买量
+  const getServiceMinPurchase = (key) => {
+    if (servicesData[key] && servicesData[key].minPurchase !== undefined) {
+      return servicesData[key].minPurchase;
+    }
+    return 1; // 默认最小购买量为1
   };
+
+  // 获取服务的最大购买量
+  const getServiceMaxPurchase = (key) => {
+    if (servicesData[key] && servicesData[key].maxPurchase !== undefined) {
+      return servicesData[key].maxPurchase;
+    }
+    return 0; // 默认最大购买量为0（无限制）
+  };
+
+  // 在组件加载时获取服务数据
+  useEffect(() => {
+    // 从localStorage获取服务数据
+    const loadServices = () => {
+      try {
+        const servicesDataStr = localStorage.getItem('services');
+        if (servicesDataStr) {
+          const services = JSON.parse(servicesDataStr);
+          const newPricing = { ...pricing };
+
+          // 更新价格
+          Object.entries(services).forEach(([key, service]) => {
+            if (service.price !== undefined) {
+              newPricing[key] = parseFloat(service.price);
+            }
+          });
+
+          setPricing(newPricing);
+          setServicesData(services);
+          console.log('已加载服务数据:', services);
+        }
+      } catch (error) {
+        console.error('加载服务数据失败:', error);
+      }
+    };
+
+    loadServices();
+  }, []);
 
   // Platform detection
   const handleUrlChange = (e) => {
@@ -236,6 +310,7 @@ const ServiceForm = () => {
 
   // Platform-specific service options
   const getPlatformServices = (platform) => {
+    // 默认服务
     const commonServices = {
       views: '播放量',
       likes: '点赞数',
@@ -243,19 +318,39 @@ const ServiceForm = () => {
       saves: '收藏量'
     };
 
+    // 从localStorage获取自定义服务
+    let customServices = {};
+    try {
+      const servicesData = localStorage.getItem('services');
+      if (servicesData) {
+        const services = JSON.parse(servicesData);
+        // 将服务添加到自定义服务对象中
+        Object.entries(services).forEach(([key, service]) => {
+          customServices[key] = service.name;
+        });
+        console.log('已加载自定义服务:', customServices);
+      }
+    } catch (error) {
+      console.error('加载自定义服务失败:', error);
+    }
+
+    // 合并默认服务和自定义服务
+    const mergedServices = { ...commonServices, ...customServices };
+
+    // 根据平台返回特定服务
     switch (platform) {
       case 'douyin':
-        return { ...commonServices, completionRate: '完播率' };
+        return { ...mergedServices, completionRate: '完播率' };
       case 'xiaohongshu':
-        return { ...commonServices, comments: '评论数' };
+        return { ...mergedServices, comments: '评论数' };
       case 'bilibili':
-        return { ...commonServices, completionRate: '完播率', coins: '投币数' };
+        return { ...mergedServices, completionRate: '完播率', coins: '投币数' };
       case 'kuaishou':
-        return { ...commonServices, completionRate: '完播率' };
+        return { ...mergedServices, completionRate: '完播率' };
       case 'wechat':
-        return { ...commonServices, reads: '阅读量' };
+        return { ...mergedServices, reads: '阅读量' };
       default:
-        return commonServices;
+        return mergedServices;
     }
   };
 
@@ -370,7 +465,7 @@ const ServiceForm = () => {
                   maxWidth: 600,
                   mx: 'auto',
                   fontSize: '1.1rem',
-                  mb: 1
+                  mb: 3
                 }}
               >
                 为您的 <Box component="span" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>{platformNames[detectedPlatform]}</Box> 内容选择需要的推广服务
@@ -378,18 +473,44 @@ const ServiceForm = () => {
 
               <Box
                 sx={{
-                  display: 'inline-flex',
+                  display: 'flex',
+                  justifyContent: 'center',
                   alignItems: 'center',
-                  bgcolor: 'rgba(60, 255, 220, 0.1)',
-                  px: 2,
-                  py: 0.5,
-                  borderRadius: 2,
-                  border: '1px solid rgba(60, 255, 220, 0.2)',
+                  gap: 2,
+                  mb: 4
                 }}
               >
-                <Typography variant="body2" color="primary.main">
-                  单价: ¥0.1/互动量
-                </Typography>
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    bgcolor: 'rgba(60, 255, 220, 0.1)',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: 2,
+                    border: '1px solid rgba(60, 255, 220, 0.2)',
+                  }}
+                >
+                  <Typography variant="body2" color="primary.main">
+                    单价: ¥0.1/互动量
+                  </Typography>
+                </Box>
+
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    bgcolor: 'rgba(60, 158, 255, 0.1)',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: 2,
+                    border: '1px solid rgba(60, 158, 255, 0.2)',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: '#3C9EFF' }}>
+                    平台: {platformNames[detectedPlatform]}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
 
@@ -408,24 +529,7 @@ const ServiceForm = () => {
               </Alert>
             )}
 
-            <Box
-              sx={{
-                maxWidth: 900,
-                mx: 'auto',
-                position: 'relative',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -20,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '80%',
-                  height: '1px',
-                  background: 'linear-gradient(90deg, rgba(60, 255, 220, 0) 0%, rgba(60, 255, 220, 0.5) 50%, rgba(60, 255, 220, 0) 100%)',
-                  boxShadow: '0 0 10px rgba(60, 255, 220, 0.5)'
-                }
-              }}
-            >
+            <Grid container spacing={3} sx={{ maxWidth: 1200, mx: 'auto' }}>
               {Object.entries(getPlatformServices(detectedPlatform)).map(([key, label], index) => {
                 // 为每个服务选择不同的颜色
                 const colors = {
@@ -441,184 +545,24 @@ const ServiceForm = () => {
                 };
 
                 const color = colors[key] || colors.views;
-                const isActive = selectedServices[key] > 0;
 
                 return (
-                  <motion.div
-                    key={key}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                  >
-                    <Paper
-                      elevation={isActive ? 6 : 2}
-                      sx={{
-                        p: 3,
-                        borderRadius: 3,
-                        mb: 3,
-                        background: `linear-gradient(135deg, rgba(5, 19, 38, 0.9), rgba(2, 8, 16, 0.95))`,
-                        border: isActive ? `1px solid ${color.main}` : '1px solid rgba(60, 255, 220, 0.1)',
-                        boxShadow: isActive ? `0 0 20px ${color.light}` : 'none',
-                        transition: 'all 0.3s ease',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&::after': isActive ? {
-                          content: '""',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '5px',
-                          height: '100%',
-                          background: `linear-gradient(to bottom, ${color.main}, transparent)`,
-                          boxShadow: `0 0 10px ${color.light}`
-                        } : {}
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Box
-                            sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: `linear-gradient(135deg, ${color.light}, transparent)`,
-                              border: `1px solid ${color.main}`,
-                              mr: 2,
-                              boxShadow: isActive ? `0 0 10px ${color.light}` : 'none',
-                            }}
-                          >
-                            <Typography
-                              variant="h6"
-                              sx={{
-                                color: color.main,
-                                fontFamily: 'Orbitron',
-                                fontWeight: 'bold'
-                              }}
-                            >
-                              {index + 1}
-                            </Typography>
-                          </Box>
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              fontFamily: 'Orbitron',
-                              fontWeight: 'medium',
-                              color: isActive ? color.main : 'text.primary',
-                              textShadow: isActive ? `0 0 10px ${color.light}` : 'none'
-                            }}
-                          >
-                            {label}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              fontFamily: 'Orbitron',
-                              color: isActive ? color.main : 'text.secondary',
-                              textShadow: isActive ? `0 0 10px ${color.light}` : 'none',
-                              transition: 'all 0.3s ease'
-                            }}
-                          >
-                            {selectedServices[key] > 0 ?
-                              `¥${(selectedServices[key] * pricing[key]).toFixed(2)}` :
-                              '未选择'}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Box sx={{ position: 'relative', mt: 3, mb: 1 }}>
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: -25,
-                            left: 0,
-                            width: '100%',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            px: 1
-                          }}
-                        >
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>0</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {key === 'completionRate' ? '100%' : '10,000'}
-                          </Typography>
-                        </Box>
-
-                        <Slider
-                          value={selectedServices[key] || 0}
-                          onChange={(e, newValue) => handleServiceChange(key, newValue)}
-                          step={key === 'completionRate' ? 5 : 100}
-                          min={0}
-                          max={key === 'completionRate' ? 100 : 10000}
-                          valueLabelDisplay="auto"
-                          valueLabelFormat={(value) => key === 'completionRate' ? `${value}%` : value.toLocaleString()}
-                          sx={{
-                            height: 8,
-                            borderRadius: 4,
-                            '& .MuiSlider-rail': {
-                              opacity: 0.5,
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            },
-                            '& .MuiSlider-track': {
-                              border: 'none',
-                              background: `linear-gradient(90deg, ${color.main} 0%, ${color.light} 100%)`,
-                              boxShadow: isActive ? `0 0 10px ${color.light}` : 'none',
-                            },
-                            '& .MuiSlider-thumb': {
-                              height: 24,
-                              width: 24,
-                              backgroundColor: '#051326',
-                              border: `2px solid ${color.main}`,
-                              boxShadow: isActive ? `0 0 10px ${color.light}` : 'none',
-                              '&:focus, &:hover, &.Mui-active': {
-                                boxShadow: `0 0 15px ${color.main}`,
-                              },
-                            },
-                            '& .MuiSlider-valueLabel': {
-                              background: `linear-gradient(135deg, rgba(5, 19, 38, 0.9), rgba(2, 8, 16, 0.95))`,
-                              border: `1px solid ${color.main}`,
-                              borderRadius: 1,
-                              boxShadow: `0 0 10px ${color.light}`,
-                              padding: '5px 10px',
-                              fontFamily: 'Orbitron',
-                              fontWeight: 'bold',
-                              '&::before': {
-                                display: 'none'
-                              }
-                            }
-                          }}
-                        />
-                      </Box>
-
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-                            当前数值:
-                          </Typography>
-                          <Typography
-                            variant="body1"
-                            sx={{
-                              color: isActive ? color.main : 'text.primary',
-                              fontWeight: 'bold',
-                              fontFamily: 'Orbitron',
-                            }}
-                          >
-                            {selectedServices[key] !== undefined ? selectedServices[key].toLocaleString() : '0'}{key === 'completionRate' ? '%' : ''}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" color="text.secondary">
-                          单价: <Box component="span" sx={{ color: color.main }}>¥{pricing[key]}</Box>/{key === 'completionRate' ? '%' : '个'}
-                        </Typography>
-                      </Box>
-                    </Paper>
-                  </motion.div>
+                  <Grid key={key} size={{ xs: 12, sm: 6, md: 4 }} sx={{ mb: 3 }}>
+                    <ServiceSelectionCard
+                      serviceKey={key}
+                      serviceLabel={label}
+                      value={selectedServices[key] || 0}
+                      onChange={handleServiceChange}
+                      color={color}
+                      pricing={pricing}
+                      platform={detectedPlatform}
+                      minPurchase={getServiceMinPurchase(key)}
+                      maxPurchase={getServiceMaxPurchase(key)}
+                    />
+                  </Grid>
                 );
               })}
-            </Box>
+            </Grid>
 
             {/* 总价格显示 */}
             <motion.div

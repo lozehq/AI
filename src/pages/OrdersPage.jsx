@@ -763,7 +763,7 @@ const OrdersPage = () => {
                     基本信息
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid container size={{ xs: 12, sm: 6 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         订单编号
                       </Typography>
@@ -771,7 +771,7 @@ const OrdersPage = () => {
                         {selectedOrder.orderId || selectedOrder.id}
                       </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid container size={{ xs: 12, sm: 6 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         创建时间
                       </Typography>
@@ -779,7 +779,7 @@ const OrdersPage = () => {
                         {new Date(selectedOrder.createdAt).toLocaleString()}
                       </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid container size={{ xs: 12, sm: 6 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         平台
                       </Typography>
@@ -793,7 +793,7 @@ const OrdersPage = () => {
                         }[selectedOrder.platform] || selectedOrder.platform}
                       </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid container size={{ xs: 12, sm: 6 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         金额
                       </Typography>

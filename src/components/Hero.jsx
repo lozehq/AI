@@ -161,7 +161,7 @@ const Hero = () => {
           animate={controls}
         >
           <Grid container spacing={5} alignItems="center" justifyContent="space-between">
-            <Grid xs={12} lg={6}>
+            <Grid container size={{ xs: 12, lg: 6 }}>
               <Box sx={{ maxWidth: 650 }}>
                 <motion.div variants={itemVariants}>
                   <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
@@ -321,7 +321,7 @@ const Hero = () => {
             </Grid>
 
             {!isTablet && (
-              <Grid xs={12} lg={5}>
+              <Grid container size={{ xs: 12, lg: 5 }}>
                 <Box
                   sx={{
                     position: 'relative',

@@ -36,7 +36,7 @@ const Footer = () => {
     >
       <Container maxWidth="lg">
         <Grid container spacing={4}>
-          <Grid item xs={12} md={4}>
+          <Grid container size={{ xs: 12, md: 4 }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -138,7 +138,7 @@ const Footer = () => {
             </motion.div>
           </Grid>
 
-          <Grid item xs={6} md={2}>
+          <Grid container size={{ xs: 6, md: 2 }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -217,7 +217,7 @@ const Footer = () => {
             </motion.div>
           </Grid>
 
-          <Grid item xs={6} md={2}>
+          <Grid container size={{ xs: 6, md: 2 }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -296,7 +296,7 @@ const Footer = () => {
             </motion.div>
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid container size={{ xs: 12, md: 4 }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
