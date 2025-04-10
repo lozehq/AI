@@ -132,7 +132,8 @@ const Header = () => {
   // 导航链接
   const navLinks = [
     { text: '首页', path: '/' },
-    { text: '服务', path: '/services' },
+    { text: '服务', path: '/service' },
+    { text: '订单', path: '/orders' },
     { text: '关于我们', path: '/about' }
   ];
 

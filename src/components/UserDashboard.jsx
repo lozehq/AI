@@ -220,7 +220,7 @@ const UserDashboard = () => {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Sidebar */}
-          <Grid lg={3} sm={12}>
+          <Grid item xs={12} md={3}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -319,7 +319,7 @@ const UserDashboard = () => {
           </Grid>
 
           {/* Main content */}
-          <Grid lg={9} sm={12}>
+          <Grid item xs={12} md={9}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -453,13 +453,20 @@ const UserDashboard = () => {
                     </Table>
                   </TableContainer>
 
-                  <Box sx={{ textAlign: 'center' }}>
+                  <Box sx={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: 2 }}>
                     <Button
                       variant="contained"
                       color="primary"
-                      onClick={() => navigate('/')}
+                      onClick={() => navigate('/service')}
                     >
                       创建新订单
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      onClick={() => navigate('/orders')}
+                    >
+                      查看全部订单
                     </Button>
                   </Box>
                 </>
@@ -484,7 +491,7 @@ const UserDashboard = () => {
                     </Typography>
 
                     <Grid container spacing={2}>
-                      <Grid sm={6}>
+                      <Grid item xs={12} sm={6}>
                         <Button
                           variant="contained"
                           color="primary"
@@ -494,7 +501,7 @@ const UserDashboard = () => {
                           充值
                         </Button>
                       </Grid>
-                      <Grid sm={6}>
+                      <Grid item xs={12} sm={6}>
                         <Button
                           variant="outlined"
                           color="secondary"
@@ -537,7 +544,7 @@ const UserDashboard = () => {
                       </Typography>
 
                       <Grid container spacing={3}>
-                        <Grid sm={6}>
+                        <Grid item xs={12} sm={6}>
                           <TextField
                             fullWidth
                             label="用户名"
@@ -545,7 +552,7 @@ const UserDashboard = () => {
                             margin="normal"
                           />
                         </Grid>
-                        <Grid sm={6}>
+                        <Grid item xs={12} sm={6}>
                           <TextField
                             fullWidth
                             label="电子邮箱"
@@ -553,7 +560,7 @@ const UserDashboard = () => {
                             margin="normal"
                           />
                         </Grid>
-                        <Grid sm={12}>
+                        <Grid item xs={12}>
                           <TextField
                             fullWidth
                             label="手机号码"
@@ -585,7 +592,7 @@ const UserDashboard = () => {
                           修改密码
                         </Typography>
                         <Grid container spacing={2}>
-                          <Grid sm={12}>
+                          <Grid item xs={12}>
                             <TextField
                               fullWidth
                               label="当前密码"
@@ -593,7 +600,7 @@ const UserDashboard = () => {
                               margin="normal"
                             />
                           </Grid>
-                          <Grid sm={6}>
+                          <Grid item xs={12} sm={6}>
                             <TextField
                               fullWidth
                               label="新密码"
@@ -601,7 +608,7 @@ const UserDashboard = () => {
                               margin="normal"
                             />
                           </Grid>
-                          <Grid sm={6}>
+                          <Grid item xs={12} sm={6}>
                             <TextField
                               fullWidth
                               label="确认新密码"
