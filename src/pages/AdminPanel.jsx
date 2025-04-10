@@ -39,11 +39,14 @@ import {
   Person as PersonIcon,
   ShoppingCart as ShoppingCartIcon,
   Settings as SettingsIcon,
-  Dashboard as DashboardIcon
+  Dashboard as DashboardIcon,
+  Key as KeyIcon,
+  VpnKey as VpnKeyIcon
 } from '@mui/icons-material';
 
 // 导入数据管理工具
 import { userManager, orderManager, serviceManager } from '../utils/dataManager';
+import { inviteCodeManager } from '../utils/inviteCodeManager';
 import { formatCurrency } from '../utils/formatters';
 
 const AdminPanel = () => {
@@ -52,17 +55,27 @@ const AdminPanel = () => {
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [services, setServices] = useState({});
+  const [inviteCodes, setInviteCodes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  
+
   // 编辑用户对话框
   const [editUserDialog, setEditUserDialog] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  
+
   // 编辑服务对话框
   const [editServiceDialog, setEditServiceDialog] = useState(false);
   const [currentService, setCurrentService] = useState({ key: '', name: '', price: 0 });
+
+  // 编辑邀请码对话框
+  const [editInviteCodeDialog, setEditInviteCodeDialog] = useState(false);
+  const [currentInviteCode, setCurrentInviteCode] = useState({
+    code: '',
+    isAdmin: false,
+    usageLimit: 10,
+    expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+  });
 
   // 检查当前用户是否是管理员
   useEffect(() => {
@@ -73,72 +86,76 @@ const AdminPanel = () => {
         navigate('/');
         return;
       }
-      
+
       // 加载数据
       loadData();
     };
-    
+
     checkAdmin();
   }, [navigate]);
-  
+
   // 加载数据
   const loadData = () => {
     setIsLoading(true);
-    
+
     // 加载用户数据
     const userData = userManager.getAllUsers();
     setUsers(userData);
-    
+
     // 加载订单数据
     const orderData = orderManager.getAllOrders();
     setOrders(orderData);
-    
+
     // 加载服务数据
     const serviceData = serviceManager.getAllServices();
     setServices(serviceData);
-    
+
+    // 加载邀请码数据
+    const inviteCodeData = inviteCodeManager.getAllInviteCodes();
+    setInviteCodes(inviteCodeData);
+
     setIsLoading(false);
   };
-  
+
   // 处理标签切换
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
-  
+
   // 处理搜索
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
   };
-  
+
   // 显示提示消息
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
   };
-  
+
   // 关闭提示消息
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
-  
+
   // 过滤用户
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   // 过滤订单
-  const filteredOrders = orders.filter(order => 
+  const filteredOrders = orders.filter(order =>
     (order.orderId || order.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (order.platform || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   // 编辑用户
   const handleEditUser = (user) => {
     setCurrentUser({ ...user });
     setEditUserDialog(true);
   };
-  
+
   // 保存用户编辑
   const handleSaveUser = () => {
     try {
@@ -153,10 +170,10 @@ const AdminPanel = () => {
       console.error('保存用户信息失败:', error);
       showSnackbar('保存用户信息失败', 'error');
     }
-    
+
     setEditUserDialog(false);
   };
-  
+
   // 删除用户
   const handleDeleteUser = (userId) => {
     if (window.confirm('确定要删除此用户吗？此操作不可撤销。')) {
@@ -173,36 +190,36 @@ const AdminPanel = () => {
       }
     }
   };
-  
+
   // 编辑服务
   const handleEditService = (key, service) => {
     setCurrentService({ key, name: service.name, price: service.price });
     setEditServiceDialog(true);
   };
-  
+
   // 添加新服务
   const handleAddService = () => {
     setCurrentService({ key: '', name: '', price: 0 });
     setEditServiceDialog(true);
   };
-  
+
   // 保存服务编辑
   const handleSaveService = () => {
     try {
       const updatedServices = { ...services };
-      
+
       // 如果是新服务，检查key是否已存在
       if (!currentService.key) {
         showSnackbar('服务标识不能为空', 'error');
         return;
       }
-      
+
       // 更新或添加服务
       updatedServices[currentService.key] = {
         name: currentService.name,
         price: parseFloat(currentService.price)
       };
-      
+
       // 保存到localStorage
       localStorage.setItem('services', JSON.stringify(updatedServices));
       showSnackbar('服务信息已更新', 'success');
@@ -211,17 +228,17 @@ const AdminPanel = () => {
       console.error('保存服务信息失败:', error);
       showSnackbar('保存服务信息失败', 'error');
     }
-    
+
     setEditServiceDialog(false);
   };
-  
+
   // 删除服务
   const handleDeleteService = (key) => {
     if (window.confirm('确定要删除此服务吗？此操作不可撤销。')) {
       try {
         const updatedServices = { ...services };
         delete updatedServices[key];
-        
+
         // 保存到localStorage
         localStorage.setItem('services', JSON.stringify(updatedServices));
         showSnackbar('服务已删除', 'success');
@@ -232,7 +249,7 @@ const AdminPanel = () => {
       }
     }
   };
-  
+
   // 删除订单
   const handleDeleteOrder = (orderId) => {
     if (window.confirm('确定要删除此订单吗？此操作不可撤销。')) {
@@ -358,6 +375,7 @@ const AdminPanel = () => {
               <Tab icon={<PersonIcon />} label="用户管理" />
               <Tab icon={<ShoppingCartIcon />} label="订单管理" />
               <Tab icon={<SettingsIcon />} label="服务设置" />
+              <Tab icon={<KeyIcon />} label="邀请码管理" />
               <Tab icon={<DashboardIcon />} label="系统概览" />
             </Tabs>
           </Box>
@@ -495,7 +513,7 @@ const AdminPanel = () => {
                   添加服务
                 </Button>
               </Box>
-              
+
               <TableContainer>
                 <Table>
                   <TableHead>
@@ -548,12 +566,110 @@ const AdminPanel = () => {
             </Box>
           )}
 
-          {/* 系统概览 */}
+          {/* 邀请码管理 */}
           {tabValue === 3 && (
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setCurrentInviteCode({
+                      code: '',
+                      isAdmin: false,
+                      usageLimit: 10,
+                      expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+                    });
+                    setEditInviteCodeDialog(true);
+                  }}
+                >
+                  创建邀请码
+                </Button>
+              </Box>
+
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>邀请码</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>类型</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>使用次数</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>使用上限</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>过期时间</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>操作</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {inviteCodes.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          <Typography variant="body1" color="text.secondary">
+                            暂无邀请码数据
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      inviteCodes.map((inviteCode) => (
+                        <TableRow key={inviteCode.code}>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontFamily: 'monospace',
+                                fontWeight: 'bold',
+                                color: inviteCode.isAdmin ? 'primary.main' : 'text.primary'
+                              }}
+                            >
+                              {inviteCode.code}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {inviteCode.isAdmin ? (
+                              <Typography color="primary.main" fontWeight="bold">管理员</Typography>
+                            ) : (
+                              <Typography color="text.secondary">普通用户</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>{inviteCode.usedCount || 0}</TableCell>
+                          <TableCell>{inviteCode.usageLimit}</TableCell>
+                          <TableCell>{new Date(inviteCode.expiresAt).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  if (window.confirm('确定要删除此邀请码吗？此操作不可撤销。')) {
+                                    const result = inviteCodeManager.deleteInviteCode(inviteCode.code);
+                                    if (result) {
+                                      showSnackbar('邀请码已删除', 'success');
+                                      loadData();
+                                    } else {
+                                      showSnackbar('删除邀请码失败', 'error');
+                                    }
+                                  }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+
+          {/* 系统概览 */}
+          {tabValue === 4 && (
             <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
                 <Grid item xs={12} md={4}>
-                  <Card sx={{ 
+                  <Card sx={{
                     bgcolor: 'rgba(10, 25, 41, 0.7)',
                     border: '1px solid rgba(60, 255, 220, 0.2)',
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
@@ -578,9 +694,9 @@ const AdminPanel = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                
+
                 <Grid item xs={12} md={4}>
-                  <Card sx={{ 
+                  <Card sx={{
                     bgcolor: 'rgba(10, 25, 41, 0.7)',
                     border: '1px solid rgba(60, 255, 220, 0.2)',
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
@@ -608,9 +724,9 @@ const AdminPanel = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                
+
                 <Grid item xs={12} md={4}>
-                  <Card sx={{ 
+                  <Card sx={{
                     bgcolor: 'rgba(10, 25, 41, 0.7)',
                     border: '1px solid rgba(60, 255, 220, 0.2)',
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
@@ -628,10 +744,40 @@ const AdminPanel = () => {
                       <Divider sx={{ my: 2, borderColor: 'rgba(60, 255, 220, 0.1)' }} />
                       <Typography variant="body2" color="text.secondary">
                         平均价格: {
-                          Object.values(services).length > 0 
+                          Object.values(services).length > 0
                             ? formatCurrency(Object.values(services).reduce((sum, service) => sum + service.price, 0) / Object.values(services).length)
                             : formatCurrency(0)
                         }
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <Card sx={{
+                    bgcolor: 'rgba(10, 25, 41, 0.7)',
+                    border: '1px solid rgba(60, 255, 220, 0.2)',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
+                  }}>
+                    <CardContent>
+                      <Typography variant="h6" color="primary.main" gutterBottom>
+                        邀请码统计
+                      </Typography>
+                      <Typography variant="h3" color="text.primary">
+                        {inviteCodes.length}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        总邀请码数
+                      </Typography>
+                      <Divider sx={{ my: 2, borderColor: 'rgba(60, 255, 220, 0.1)' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        管理员邀请码: {inviteCodes.filter(code => code.isAdmin).length}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        普通邀请码: {inviteCodes.filter(code => !code.isAdmin).length}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        已使用次数: {inviteCodes.reduce((sum, code) => sum + (code.usedCount || 0), 0)}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -722,6 +868,80 @@ const AdminPanel = () => {
         <DialogActions>
           <Button onClick={() => setEditServiceDialog(false)}>取消</Button>
           <Button onClick={handleSaveService} color="primary">保存</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 邀请码对话框 */}
+      <Dialog open={editInviteCodeDialog} onClose={() => setEditInviteCodeDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{currentInviteCode.code ? '编辑邀请码' : '创建邀请码'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="邀请码"
+              fullWidth
+              value={currentInviteCode.code || ''}
+              onChange={(e) => setCurrentInviteCode({ ...currentInviteCode, code: e.target.value })}
+              helperText="请输入唯一的邀请码，建议使用大写字母和数字的组合"
+            />
+            <TextField
+              label="使用上限"
+              fullWidth
+              type="number"
+              value={currentInviteCode.usageLimit || 10}
+              onChange={(e) => setCurrentInviteCode({ ...currentInviteCode, usageLimit: parseInt(e.target.value) })}
+              helperText="此邀请码最多可以被使用的次数"
+            />
+            <TextField
+              label="过期时间"
+              fullWidth
+              type="date"
+              value={currentInviteCode.expiresAt}
+              onChange={(e) => setCurrentInviteCode({ ...currentInviteCode, expiresAt: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              helperText="邀请码的过期时间"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!currentInviteCode.isAdmin}
+                  onChange={(e) => setCurrentInviteCode({ ...currentInviteCode, isAdmin: e.target.checked })}
+                  color="primary"
+                />
+              }
+              label="管理员邀请码"
+            />
+            {currentInviteCode.isAdmin && (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                警告：使用此邀请码注册的用户将获得管理员权限！
+              </Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditInviteCodeDialog(false)}>取消</Button>
+          <Button
+            onClick={() => {
+              // 验证表单
+              if (!currentInviteCode.code) {
+                showSnackbar('邀请码不能为空', 'error');
+                return;
+              }
+
+              // 创建邀请码
+              const result = inviteCodeManager.createInviteCode(currentInviteCode);
+
+              if (result.success) {
+                showSnackbar('邀请码创建成功', 'success');
+                setEditInviteCodeDialog(false);
+                loadData();
+              } else {
+                showSnackbar(result.message, 'error');
+              }
+            }}
+            color="primary"
+          >
+            保存
+          </Button>
         </DialogActions>
       </Dialog>
 

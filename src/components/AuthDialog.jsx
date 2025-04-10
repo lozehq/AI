@@ -26,6 +26,9 @@ import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
 
 // 导入用户管理工具
 import { userManager } from '../utils/dataManager';
+// 导入邀请码管理工具
+import { inviteCodeManager } from '../utils/inviteCodeManager';
+import KeyIcon from '@mui/icons-material/Key';
 
 const AuthDialog = ({ open, onClose, onLogin }) => {
   // 标签状态
@@ -42,7 +45,8 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    inviteCode: ''
   });
 
   // UI状态
@@ -105,7 +109,11 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
 
         if (user) {
           // 登录成功
-          setSuccess('登录成功！');
+          setSuccess('登录成功！' + (user.isAdmin ? ' (管理员账户)' : ''));
+
+          // 打印调试信息
+          console.log('登录成功，用户信息：', user);
+          console.log('管理员状态：', !!user.isAdmin);
 
           // 存储用户会话
           localStorage.setItem('currentUser', JSON.stringify(user));
@@ -137,14 +145,22 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
     setError('');
 
     // 验证表单
-    if (!registerForm.username || !registerForm.email || !registerForm.phone || !registerForm.password) {
-      setError('请填写所有必填字段');
+    if (!registerForm.username || !registerForm.email || !registerForm.phone || !registerForm.password || !registerForm.inviteCode) {
+      setError('请填写所有必填字段，包括邀请码');
       setLoading(false);
       return;
     }
 
     if (registerForm.password !== registerForm.confirmPassword) {
       setError('两次输入的密码不一致');
+      setLoading(false);
+      return;
+    }
+
+    // 验证邀请码
+    const inviteCodeResult = inviteCodeManager.validateInviteCode(registerForm.inviteCode);
+    if (!inviteCodeResult.valid) {
+      setError('邀请码无效: ' + inviteCodeResult.message);
       setLoading(false);
       return;
     }
@@ -162,17 +178,21 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           return;
         }
 
+        // 使用邀请码
+        inviteCodeManager.useInviteCode(registerForm.inviteCode);
+
         // 创建新用户
         const newUser = userManager.createUser({
           name: registerForm.username,
           email: registerForm.email,
           phone: registerForm.phone,
           password: registerForm.password,
-          balance: 0.00 // 新用户初始余额
+          balance: 0.00, // 新用户初始余额
+          isAdmin: inviteCodeResult.isAdmin // 根据邀请码设置管理员权限
         });
 
         // 注册成功
-        setSuccess('注册成功！');
+        setSuccess('注册成功！' + (inviteCodeResult.isAdmin ? ' (管理员账户)' : ''));
 
         // 存储用户会话
         localStorage.setItem('currentUser', JSON.stringify(newUser));
@@ -469,6 +489,25 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
                 ),
               }}
               sx={{ mb: 2 }}
+            />
+
+            <TextField
+              fullWidth
+              label="邀请码"
+              name="inviteCode"
+              value={registerForm.inviteCode}
+              onChange={handleRegisterChange}
+              margin="normal"
+              variant="outlined"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <KeyIcon color="primary" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+              helperText="请输入邀请码，没有邀请码将无法注册"
             />
           </motion.div>
         )}

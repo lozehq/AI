@@ -17,19 +17,30 @@ import {
   IconButton,
   Tooltip,
   alpha,
-  useTheme
+  useTheme,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Slider,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Visibility as VisibilityIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  PlayArrow as PlayArrowIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { getOrders, deleteOrder, getStatusText, simulateOrderProgress } from '../services/orderService';
+import { getOrders, deleteOrder, getStatusText, simulateOrderProgress, updateOrderStatus } from '../services/orderService';
 import { formatCurrency } from '../utils/formatters';
+import { userManager } from '../utils/dataManager';
 
 const OrdersPage = () => {
   const theme = useTheme();
@@ -37,8 +48,22 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // 加载订单数据
+  // 进度模拟对话框
+  const [progressDialog, setProgressDialog] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState(null);
+  const [progressValue, setProgressValue] = useState(0);
+
+  // 提示消息
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
+  // 加载订单数据和检查管理员权限
   useEffect(() => {
     const loadOrders = () => {
       setLoading(true);
@@ -47,7 +72,19 @@ const OrdersPage = () => {
       setLoading(false);
     };
 
+    // 检查用户权限
+    const checkUserRole = () => {
+      const user = userManager.getCurrentUser();
+      setCurrentUser(user);
+      setIsAdmin(user?.isAdmin || false);
+
+      // 打印调试信息
+      console.log('当前用户：', user);
+      console.log('管理员状态：', user?.isAdmin || false);
+    };
+
     loadOrders();
+    checkUserRole();
 
     // 设置定时器，每5秒刷新一次订单数据
     const intervalId = setInterval(loadOrders, 5000);
@@ -75,6 +112,10 @@ const OrdersPage = () => {
     }
   };
 
+  // 订单详情对话框状态
+  const [orderDetailDialog, setOrderDetailDialog] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
   // 处理查看订单详情
   const handleViewOrder = (orderId) => {
     try {
@@ -87,27 +128,62 @@ const OrdersPage = () => {
       const order = getOrderById(orderId);
 
       if (!order) {
-        alert('未找到订单信息');
+        showSnackbar('未找到订单信息', 'error');
         return;
       }
 
-      // 在实际应用中，这里会导航到订单详情页
-      // 目前使用alert显示订单信息
-      const platformName = {
-        'douyin': '抖音',
-        'xiaohongshu': '小红书',
-        'bilibili': '哔哩哔哩',
-        'kuaishou': '快手',
-        'wechat': '微信'
-      }[order.platform] || order.platform;
-
-      const statusText = getStatusText(order.status);
-      const totalAmount = order.totalAmount || order.price || 0;
-
-      alert(`订单详情:\n订单编号: ${orderId}\n平台: ${platformName}\n状态: ${statusText}\n进度: ${order.progress || 0}%\n金额: ¥${totalAmount.toFixed(2)}`);
+      // 设置选中的订单并打开详情对话框
+      setSelectedOrder(order);
+      setOrderDetailDialog(true);
     } catch (error) {
       console.error('查看订单详情失败:', error);
-      alert('查看订单详情失败');
+      showSnackbar('查看订单详情失败', 'error');
+    }
+  };
+
+  // 处理关闭订单详情对话框
+  const handleCloseOrderDetail = () => {
+    setOrderDetailDialog(false);
+    setSelectedOrder(null);
+  };
+
+  // 处理订单状态更新
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    if (!isAdmin) {
+      showSnackbar('只有管理员可以更新订单状态', 'warning');
+      return;
+    }
+
+    try {
+      // 根据状态设置进度
+      let progress = 0;
+      if (newStatus === 'completed') {
+        progress = 100;
+      } else if (newStatus === 'processing' || newStatus === 'in_progress') {
+        progress = 50;
+      }
+
+      // 更新订单状态
+      updateOrderStatus(orderId, newStatus, progress);
+
+      // 更新本地状态
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          (order.orderId === orderId || order.id === orderId)
+            ? { ...order, status: newStatus, progress }
+            : order
+        )
+      );
+
+      // 如果当前正在查看该订单，更新选中的订单
+      if (selectedOrder && (selectedOrder.orderId === orderId || selectedOrder.id === orderId)) {
+        setSelectedOrder({ ...selectedOrder, status: newStatus, progress });
+      }
+
+      showSnackbar(`订单状态已更新为 ${getStatusText(newStatus)}`, 'success');
+    } catch (error) {
+      console.error('更新订单状态失败:', error);
+      showSnackbar('更新订单状态失败', 'error');
     }
   };
 
@@ -116,15 +192,90 @@ const OrdersPage = () => {
     navigate('/service');
   };
 
+  // 显示提示消息
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  // 关闭提示消息
+  const handleCloseSnackbar = () => {
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
+  };
+
+  // 打开进度模拟对话框
+  const handleOpenProgressDialog = (order) => {
+    if (!isAdmin) {
+      showSnackbar('只有管理员可以模拟订单进度', 'warning');
+      return;
+    }
+
+    setCurrentOrder(order);
+    setProgressValue(order.progress || 0);
+    setProgressDialog(true);
+  };
+
+  // 处理进度改变
+  const handleProgressChange = (event, newValue) => {
+    setProgressValue(newValue);
+  };
+
+  // 保存进度更新
+  const handleSaveProgress = () => {
+    if (!currentOrder) return;
+
+    const orderId = currentOrder.orderId || currentOrder.id;
+    let status = currentOrder.status;
+
+    // 根据进度自动更新状态
+    if (progressValue === 0) {
+      status = 'waiting';
+    } else if (progressValue === 100) {
+      status = 'completed';
+    } else {
+      status = 'processing';
+    }
+
+    // 更新订单状态和进度
+    updateOrderStatus(orderId, status, progressValue);
+
+    // 更新本地状态
+    setOrders(prevOrders =>
+      prevOrders.map(order =>
+        (order.orderId === orderId || order.id === orderId)
+          ? { ...order, status, progress: progressValue }
+          : order
+      )
+    );
+
+    showSnackbar(`订单 ${orderId} 进度已更新为 ${progressValue}%`, 'success');
+    setProgressDialog(false);
+  };
+
   // 处理模拟订单进度
   const handleSimulateProgress = (orderId) => {
+    if (!isAdmin) {
+      showSnackbar('只有管理员可以模拟订单进度', 'warning');
+      return;
+    }
+
     simulateOrderProgress(orderId, (updatedOrder) => {
       setOrders(prevOrders =>
         prevOrders.map(order =>
-          order.orderId === updatedOrder.orderId ? updatedOrder : order
+          (order.orderId === updatedOrder.orderId || order.id === updatedOrder.id)
+            ? updatedOrder
+            : order
         )
       );
     });
+
+    showSnackbar(`订单 ${orderId} 开始自动模拟进度`, 'info');
   };
 
   // 获取状态颜色
@@ -437,19 +588,38 @@ const OrdersPage = () => {
                               </IconButton>
                             </Tooltip>
 
+                            {/* 进度调整按钮 - 所有订单都显示，但只有管理员可用 */}
+                            <Tooltip title="调整进度">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenProgressDialog(order)}
+                                sx={{
+                                  color: isAdmin ? theme.palette.primary.main : alpha(theme.palette.primary.main, 0.5),
+                                  '&:hover': {
+                                    bgcolor: isAdmin ? alpha(theme.palette.primary.main, 0.1) : 'transparent'
+                                  }
+                                }}
+                                disabled={!isAdmin}
+                              >
+                                <AdminPanelSettingsIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+
+                            {/* 自动模拟进度按钮 - 只有等待中的订单显示 */}
                             {order.status === 'waiting' && (
-                              <Tooltip title="模拟进度">
+                              <Tooltip title="自动模拟进度">
                                 <IconButton
                                   size="small"
                                   onClick={() => handleSimulateProgress(order.orderId || order.id)}
                                   sx={{
-                                    color: theme.palette.success.main,
+                                    color: isAdmin ? theme.palette.success.main : alpha(theme.palette.success.main, 0.5),
                                     '&:hover': {
-                                      bgcolor: alpha(theme.palette.success.main, 0.1)
+                                      bgcolor: isAdmin ? alpha(theme.palette.success.main, 0.1) : 'transparent'
                                     }
                                   }}
+                                  disabled={!isAdmin}
                                 >
-                                  <AddIcon fontSize="small" />
+                                  <PlayArrowIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
@@ -502,6 +672,325 @@ const OrdersPage = () => {
           </motion.div>
         </Box>
       </motion.div>
+
+      {/* 进度模拟对话框 */}
+      <Dialog open={progressDialog} onClose={() => setProgressDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'Orbitron' }}>
+          调整订单进度
+        </DialogTitle>
+        <DialogContent>
+          {currentOrder && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                订单编号: {currentOrder.orderId || currentOrder.id}
+              </Typography>
+
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2, mb: 1 }}>
+                当前状态:
+                <Chip
+                  label={getStatusText(currentOrder.status)}
+                  size="small"
+                  sx={{
+                    ml: 1,
+                    bgcolor: alpha(getStatusColor(currentOrder.status), 0.1),
+                    color: getStatusColor(currentOrder.status),
+                    borderColor: getStatusColor(currentOrder.status),
+                    border: '1px solid'
+                  }}
+                />
+              </Typography>
+
+              <Box sx={{ mt: 3, mb: 2 }}>
+                <Typography id="progress-slider" gutterBottom>
+                  进度: {progressValue}%
+                </Typography>
+                <Slider
+                  value={progressValue}
+                  onChange={handleProgressChange}
+                  aria-labelledby="progress-slider"
+                  valueLabelDisplay="auto"
+                  step={5}
+                  marks
+                  min={0}
+                  max={100}
+                  sx={{
+                    color: theme.palette.primary.main,
+                    '& .MuiSlider-thumb': {
+                      '&:hover, &.Mui-focusVisible': {
+                        boxShadow: `0px 0px 0px 8px ${alpha(theme.palette.primary.main, 0.16)}`
+                      },
+                    },
+                  }}
+                />
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                请拖动滑块调整订单进度。进度为0%时状态为“待处理”，进度为100%时状态为“已完成”，其他进度状态为“进行中”。
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProgressDialog(false)}>取消</Button>
+          <Button onClick={handleSaveProgress} color="primary">保存</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 订单详情对话框 */}
+      <Dialog open={orderDetailDialog} onClose={handleCloseOrderDetail} maxWidth="md" fullWidth>
+        {selectedOrder && (
+          <>
+            <DialogTitle sx={{ fontFamily: 'Orbitron', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6">
+                订单详情
+              </Typography>
+              <Chip
+                label={getStatusText(selectedOrder.status)}
+                size="small"
+                sx={{
+                  bgcolor: alpha(getStatusColor(selectedOrder.status), 0.1),
+                  color: getStatusColor(selectedOrder.status),
+                  borderColor: getStatusColor(selectedOrder.status),
+                  border: '1px solid'
+                }}
+              />
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ mt: 2 }}>
+                {/* 订单基本信息 */}
+                <Paper sx={{ p: 2, mb: 3, bgcolor: 'rgba(10, 25, 41, 0.7)', border: '1px solid rgba(60, 255, 220, 0.2)' }}>
+                  <Typography variant="h6" color="primary.main" gutterBottom>
+                    基本信息
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        订单编号
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontFamily: 'Rajdhani', fontWeight: 'bold' }}>
+                        {selectedOrder.orderId || selectedOrder.id}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        创建时间
+                      </Typography>
+                      <Typography variant="body1">
+                        {new Date(selectedOrder.createdAt).toLocaleString()}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        平台
+                      </Typography>
+                      <Typography variant="body1">
+                        {{
+                          'douyin': '抖音',
+                          'xiaohongshu': '小红书',
+                          'bilibili': '哔哩哔哩',
+                          'kuaishou': '快手',
+                          'wechat': '微信'
+                        }[selectedOrder.platform] || selectedOrder.platform}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        金额
+                      </Typography>
+                      <Typography variant="body1" color="primary.main" sx={{ fontWeight: 'bold' }}>
+                        {formatCurrency(selectedOrder.totalAmount || selectedOrder.price || 0)}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* 订单进度 */}
+                <Paper sx={{ p: 2, mb: 3, bgcolor: 'rgba(10, 25, 41, 0.7)', border: '1px solid rgba(60, 255, 220, 0.2)' }}>
+                  <Typography variant="h6" color="primary.main" gutterBottom>
+                    订单进度
+                  </Typography>
+                  <Box sx={{ mt: 2, mb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2">
+                        {selectedOrder.progress || 0}%
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {getStatusText(selectedOrder.status)}
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={selectedOrder.progress || 0}
+                      sx={{
+                        height: 10,
+                        borderRadius: 5,
+                        bgcolor: 'rgba(60, 255, 220, 0.1)',
+                        '& .MuiLinearProgress-bar': {
+                          bgcolor: getStatusColor(selectedOrder.status)
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  {isAdmin && (
+                    <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="warning"
+                        onClick={() => handleUpdateOrderStatus(selectedOrder.orderId || selectedOrder.id, 'waiting')}
+                        disabled={selectedOrder.status === 'waiting'}
+                      >
+                        标记为待处理
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="info"
+                        onClick={() => handleUpdateOrderStatus(selectedOrder.orderId || selectedOrder.id, 'processing')}
+                        disabled={selectedOrder.status === 'processing'}
+                      >
+                        标记为进行中
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="success"
+                        onClick={() => handleUpdateOrderStatus(selectedOrder.orderId || selectedOrder.id, 'completed')}
+                        disabled={selectedOrder.status === 'completed'}
+                      >
+                        标记为已完成
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={() => handleUpdateOrderStatus(selectedOrder.orderId || selectedOrder.id, 'cancelled')}
+                        disabled={selectedOrder.status === 'cancelled'}
+                      >
+                        标记为已取消
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        onClick={() => {
+                          handleCloseOrderDetail();
+                          setCurrentOrder(selectedOrder);
+                          setProgressValue(selectedOrder.progress || 0);
+                          setProgressDialog(true);
+                        }}
+                        sx={{ ml: 'auto' }}
+                      >
+                        调整进度
+                      </Button>
+                    </Box>
+                  )}
+                </Paper>
+
+                {/* 服务详情 */}
+                <Paper sx={{ p: 2, mb: 3, bgcolor: 'rgba(10, 25, 41, 0.7)', border: '1px solid rgba(60, 255, 220, 0.2)' }}>
+                  <Typography variant="h6" color="primary.main" gutterBottom>
+                    服务详情
+                  </Typography>
+                  <TableContainer component={Box}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>服务类型</TableCell>
+                          <TableCell align="right">数量</TableCell>
+                          <TableCell align="right">单价</TableCell>
+                          <TableCell align="right">小计</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedOrder.services && Object.entries(selectedOrder.services)
+                          .filter(([_, value]) => value > 0)
+                          .map(([key, value]) => {
+                            const serviceNames = {
+                              likes: '点赞数',
+                              views: '播放量',
+                              comments: '评论数',
+                              shares: '分享数',
+                              followers: '粉丝数',
+                              completionRate: '完播率'
+                            };
+                            const price = 0.1; // 假设每个服务的单价都是0.1元
+                            return (
+                              <TableRow key={key}>
+                                <TableCell>{serviceNames[key] || key}</TableCell>
+                                <TableCell align="right">{value}</TableCell>
+                                <TableCell align="right">¥0.10</TableCell>
+                                <TableCell align="right">{formatCurrency(value * price)}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        <TableRow>
+                          <TableCell colSpan={3} align="right" sx={{ fontWeight: 'bold' }}>总计</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                            {formatCurrency(selectedOrder.totalAmount || selectedOrder.price || 0)}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+
+                {/* 备注信息 */}
+                {selectedOrder.notes && (
+                  <Paper sx={{ p: 2, bgcolor: 'rgba(10, 25, 41, 0.7)', border: '1px solid rgba(60, 255, 220, 0.2)' }}>
+                    <Typography variant="h6" color="primary.main" gutterBottom>
+                      备注信息
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {selectedOrder.notes}
+                    </Typography>
+                  </Paper>
+                )}
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              {isAdmin && (
+                <Button
+                  color="error"
+                  onClick={() => {
+                    handleCloseOrderDetail();
+                    handleDeleteOrder(selectedOrder.orderId || selectedOrder.id);
+                  }}
+                  sx={{ mr: 'auto' }}
+                >
+                  删除订单
+                </Button>
+              )}
+              <Button onClick={handleCloseOrderDetail}>关闭</Button>
+              {isAdmin && selectedOrder.status === 'waiting' && (
+                <Button
+                  color="primary"
+                  variant="contained"
+                  onClick={() => {
+                    handleCloseOrderDetail();
+                    handleSimulateProgress(selectedOrder.orderId || selectedOrder.id);
+                  }}
+                >
+                  开始处理
+                </Button>
+              )}
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* 提示消息 */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

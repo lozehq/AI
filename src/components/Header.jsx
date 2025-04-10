@@ -103,6 +103,11 @@ const Header = () => {
     setCurrentUser(user);
     setIsLoggedIn(true);
     setIsAdmin(!!user.isAdmin);
+    setAuthDialogOpen(false); // 关闭登录对话框
+
+    // 打印调试信息
+    console.log('登录成功，用户信息：', user);
+    console.log('管理员状态：', !!user.isAdmin);
   };
 
   // 打开用户菜单
@@ -659,12 +664,19 @@ const Header = () => {
                           账户设置
                         </MenuItem>
 
-                        {isAdmin && (
-                          <MenuItem component={RouterLink} to="/admin">
-                            <AdminPanelSettingsIcon sx={{ mr: 1, fontSize: 20, color: 'primary.main' }} />
-                            <Typography color="primary.main">管理员面板</Typography>
-                          </MenuItem>
-                        )}
+                        {/* 管理员面板入口 - 强制显示以便于调试 */}
+                        <MenuItem component={RouterLink} to="/admin">
+                          <AdminPanelSettingsIcon sx={{ mr: 1, fontSize: 20, color: 'primary.main' }} />
+                          <Typography color="primary.main">管理员面板 {isAdmin ? '(管理员)' : '(非管理员)'}</Typography>
+                        </MenuItem>
+
+                        {/* 显示当前用户信息以便于调试 */}
+                        <MenuItem>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            isAdmin: {isAdmin ? 'true' : 'false'}<br/>
+                            user.isAdmin: {currentUser?.isAdmin ? 'true' : 'false'}
+                          </Typography>
+                        </MenuItem>
 
                         <Divider sx={{ borderColor: 'rgba(60, 255, 220, 0.1)', my: 1 }} />
 
