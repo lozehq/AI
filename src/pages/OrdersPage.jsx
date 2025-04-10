@@ -77,8 +77,38 @@ const OrdersPage = () => {
 
   // 处理查看订单详情
   const handleViewOrder = (orderId) => {
-    // 在实际应用中，这里会导航到订单详情页
-    alert('查看订单详情: ' + orderId);
+    try {
+      if (!orderId) {
+        console.error('订单ID不能为空');
+        return;
+      }
+
+      // 获取订单详情
+      const order = getOrderById(orderId);
+
+      if (!order) {
+        alert('未找到订单信息');
+        return;
+      }
+
+      // 在实际应用中，这里会导航到订单详情页
+      // 目前使用alert显示订单信息
+      const platformName = {
+        'douyin': '抖音',
+        'xiaohongshu': '小红书',
+        'bilibili': '哔哩哔哩',
+        'kuaishou': '快手',
+        'wechat': '微信'
+      }[order.platform] || order.platform;
+
+      const statusText = getStatusText(order.status);
+      const totalAmount = order.totalAmount || order.price || 0;
+
+      alert(`订单详情:\n订单编号: ${orderId}\n平台: ${platformName}\n状态: ${statusText}\n进度: ${order.progress || 0}%\n金额: ¥${totalAmount.toFixed(2)}`);
+    } catch (error) {
+      console.error('查看订单详情失败:', error);
+      alert('查看订单详情失败');
+    }
   };
 
   // 处理创建新订单

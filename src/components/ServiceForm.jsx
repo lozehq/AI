@@ -69,26 +69,53 @@ const ServiceForm = () => {
   };
 
   const handleDetectPlatform = () => {
-    if (!videoUrl) {
+    // 清除之前的错误
+    setError('');
+
+    // 验证链接
+    if (!videoUrl || videoUrl.trim() === '') {
       setError('请输入视频链接');
       return;
     }
 
+    // 设置加载状态
     setIsDetecting(true);
 
-    // Simulate API call with setTimeout
+    // 使用超时模拟异步请求
     setTimeout(() => {
       try {
-        const platform = detectPlatform(videoUrl);
+        // 尝试检测平台
+        const platform = detectPlatform(videoUrl.trim());
+
+        // 更新状态
         setDetectedPlatform(platform);
         setIsDetecting(false);
 
         if (platform) {
+          // 如果成功检测到平台，进入下一步
           setActiveStep(1);
         } else {
-          setError('无法识别平台，请检查链接是否正确');
+          // 如果无法检测平台
+          setError('无法识别平台，请检查链接是否正确或手动选择平台');
+
+          // 尝试从链接中提取关键词来猜测平台
+          const lowerUrl = videoUrl.toLowerCase();
+          if (lowerUrl.includes('douyin') || lowerUrl.includes('tiktok')) {
+            setDetectedPlatform('douyin');
+            setError('已自动选择抖音平台，请确认是否正确');
+            setActiveStep(1);
+          } else if (lowerUrl.includes('xiaohongshu') || lowerUrl.includes('xhs')) {
+            setDetectedPlatform('xiaohongshu');
+            setError('已自动选择小红书平台，请确认是否正确');
+            setActiveStep(1);
+          } else if (lowerUrl.includes('bilibili') || lowerUrl.includes('b23')) {
+            setDetectedPlatform('bilibili');
+            setError('已自动选择哔哩哔哩平台，请确认是否正确');
+            setActiveStep(1);
+          }
         }
       } catch (err) {
+        console.error('链接检测错误:', err);
         setError('链接格式错误，请输入有效的视频链接');
         setIsDetecting(false);
       }
@@ -110,11 +137,28 @@ const ServiceForm = () => {
   };
 
   const calculateTotalPrice = (services) => {
-    let total = 0;
-    for (const [service, amount] of Object.entries(services)) {
-      total += amount * pricing[service];
+    try {
+      if (!services || typeof services !== 'object') {
+        console.error('无效的服务对象:', services);
+        setTotalPrice(0);
+        return;
+      }
+
+      let total = 0;
+      for (const [service, amount] of Object.entries(services)) {
+        // 确保数量是数字
+        const numAmount = Number(amount);
+        if (!isNaN(numAmount) && numAmount > 0 && pricing[service]) {
+          total += numAmount * pricing[service];
+        }
+      }
+
+      // 保留两位小数
+      setTotalPrice(parseFloat(total.toFixed(2)));
+    } catch (error) {
+      console.error('计算总价错误:', error);
+      setTotalPrice(0);
     }
-    setTotalPrice(total);
   };
 
   // 处理订单创建
