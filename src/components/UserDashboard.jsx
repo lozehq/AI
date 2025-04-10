@@ -32,58 +32,15 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import AddIcon from '@mui/icons-material/Add';
+import InboxIcon from '@mui/icons-material/Inbox';
 import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 
 // 导入数据管理工具
 import { orderManager } from '../utils/dataManager';
 
-// Mock data for orders
-const mockOrders = [
-  {
-    id: 'ORD-123456',
-    platform: 'douyin',
-    platformName: '抖音',
-    date: '2025-04-09',
-    status: 'completed',
-    services: {
-      views: 1000,
-      likes: 200
-    },
-    progress: 100,
-    price: 140.00,
-    url: 'https://v.douyin.com/example1'
-  },
-  {
-    id: 'ORD-123457',
-    platform: 'xiaohongshu',
-    platformName: '小红书',
-    date: '2025-04-08',
-    status: 'in_progress',
-    services: {
-      views: 2000,
-      likes: 300,
-      saves: 100
-    },
-    progress: 65,
-    price: 290.00,
-    url: 'https://www.xiaohongshu.com/example2'
-  },
-  {
-    id: 'ORD-123458',
-    platform: 'bilibili',
-    platformName: '哔哩哔哩',
-    date: '2025-04-07',
-    status: 'pending',
-    services: {
-      views: 5000,
-      likes: 500,
-      shares: 200
-    },
-    progress: 0,
-    price: 670.00,
-    url: 'https://www.bilibili.com/example3'
-  }
-];
+// 空的订单数组，将来会从后端获取真实数据
+const mockOrders = [];
 
 // Service name mapping
 const serviceNames = {
@@ -124,7 +81,7 @@ const UserDashboard = () => {
   };
 
   const [tabValue, setTabValue] = useState(getInitialTabValue());
-  const [orders, setOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -138,7 +95,7 @@ const UserDashboard = () => {
 
         // 加载用户的订单
         // 在实际应用中，这里应该从后端获取用户的订单
-        // 这里我们使用模拟数据
+        // 目前使用空数组，等待后端集成
       } catch (err) {
         console.error('Failed to parse user data:', err);
         // 如果没有登录，重定向到首页
@@ -209,18 +166,18 @@ const UserDashboard = () => {
   };
 
   // Filter orders based on search term
-  const filteredOrders = orders.filter(order =>
+  const filteredOrders = orders.length > 0 ? orders.filter(order =>
     order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.platformName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.url.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    (order.url && order.url.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) : [];
 
   return (
     <Box sx={{ py: 6, minHeight: '80vh' }}>
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Sidebar */}
-          <Grid item xs={12} md={3}>
+          <Grid sm={12} md={3}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -319,7 +276,7 @@ const UserDashboard = () => {
           </Grid>
 
           {/* Main content */}
-          <Grid item xs={12} md={9}>
+          <Grid sm={12} md={9}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -383,72 +340,24 @@ const UserDashboard = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {filteredOrders.length > 0 ? (
-                          filteredOrders.map((order) => (
-                            <TableRow key={order.id}>
-                              <TableCell>{order.id}</TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={order.platformName}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: 'rgba(0, 240, 255, 0.1)',
-                                    border: '1px solid rgba(0, 240, 255, 0.3)',
-                                    color: 'white'
-                                  }}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Box sx={{ maxWidth: 200 }}>
-                                  {Object.entries(order.services).map(([key, value]) => (
-                                    <Typography variant="body2" key={key} sx={{ fontSize: '0.8rem' }}>
-                                      {serviceNames[key]}: {key === 'completionRate' ? `${value}%` : value}
-                                    </Typography>
-                                  ))}
-                                </Box>
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={statusLabels[order.status]}
-                                  color={statusColors[order.status]}
-                                  size="small"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 100 }}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={order.progress}
-                                    sx={{
-                                      flexGrow: 1,
-                                      height: 8,
-                                      borderRadius: 4
-                                    }}
-                                  />
-                                  <Typography variant="body2" sx={{ minWidth: 35 }}>
-                                    {order.progress}%
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell>¥{order.price.toFixed(2)}</TableCell>
-                              <TableCell>
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  title="查看详情"
-                                >
-                                  <VisibilityIcon fontSize="small" />
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={7} align="center">
-                              没有找到匹配的订单
-                            </TableCell>
-                          </TableRow>
-                        )}
+                        <TableRow>
+                          <TableCell colSpan={7} align="center">
+                            <Box sx={{ py: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <InboxIcon sx={{ fontSize: 60, opacity: 0.5 }} />
+                              <Typography variant="body1" color="text.secondary">
+                                暂无订单记录
+                              </Typography>
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={() => navigate('/service')}
+                                startIcon={<AddIcon />}
+                              >
+                                创建第一个订单
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
                       </TableBody>
                     </Table>
                   </TableContainer>
@@ -491,7 +400,7 @@ const UserDashboard = () => {
                     </Typography>
 
                     <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <Button
                           variant="contained"
                           color="primary"
@@ -501,7 +410,7 @@ const UserDashboard = () => {
                           充值
                         </Button>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <Button
                           variant="outlined"
                           color="secondary"

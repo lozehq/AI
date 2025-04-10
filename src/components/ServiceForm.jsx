@@ -539,7 +539,7 @@ const ServiceForm = () => {
                               fontFamily: 'Orbitron',
                             }}
                           >
-                            {(selectedServices[key] || 0).toLocaleString()}{key === 'completionRate' ? '%' : ''}
+                            {selectedServices[key] !== undefined ? selectedServices[key].toLocaleString() : '0'}{key === 'completionRate' ? '%' : ''}
                           </Typography>
                         </Box>
                         <Typography variant="body2" color="text.secondary">

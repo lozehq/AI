@@ -4,35 +4,46 @@
  * @returns {string|null} - The detected platform code or null if not detected
  */
 export const detectPlatform = (url) => {
+  // 如果URL为空或不是字符串，直接返回null
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return null;
+  }
+
   try {
-    const urlObj = new URL(url);
+    // 确保URL有协议前缀
+    let normalizedUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      normalizedUrl = 'https://' + url;
+    }
+
+    const urlObj = new URL(normalizedUrl);
     const hostname = urlObj.hostname.toLowerCase();
-    
+
     // Douyin detection
     if (hostname.includes('douyin.com') || hostname.includes('iesdouyin.com')) {
       return 'douyin';
     }
-    
+
     // Xiaohongshu detection
     if (hostname.includes('xiaohongshu.com') || hostname.includes('xhslink.com')) {
       return 'xiaohongshu';
     }
-    
+
     // Bilibili detection
     if (hostname.includes('bilibili.com') || hostname.includes('b23.tv')) {
       return 'bilibili';
     }
-    
+
     // Kuaishou detection
     if (hostname.includes('kuaishou.com') || hostname.includes('gifshow.com') || hostname.includes('chenzhongtech.com')) {
       return 'kuaishou';
     }
-    
+
     // WeChat detection (public accounts and video channels)
     if (hostname.includes('weixin.qq.com') || hostname.includes('mp.weixin.qq.com')) {
       return 'wechat';
     }
-    
+
     // If no platform is detected
     return null;
   } catch (error) {
@@ -54,7 +65,7 @@ export const getPlatformName = (platformCode) => {
     kuaishou: '快手',
     wechat: '微信公众号/视频号'
   };
-  
+
   return platformNames[platformCode] || '未知平台';
 };
 
@@ -70,7 +81,7 @@ export const getPlatformServices = (platformCode) => {
     shares: '分享数',
     saves: '收藏量'
   };
-  
+
   switch (platformCode) {
     case 'douyin':
       return { ...commonServices, completionRate: '完播率' };
