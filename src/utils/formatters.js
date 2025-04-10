@@ -1,6 +1,9 @@
 // 格式化货币
 export const formatCurrency = (amount) => {
-  return `¥${amount.toFixed(2)}`;
+  if (amount === undefined || amount === null) {
+    return '¥0.00';
+  }
+  return `¥${Number(amount).toFixed(2)}`;
 };
 
 // 格式化日期

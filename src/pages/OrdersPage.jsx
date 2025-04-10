@@ -62,8 +62,8 @@ const OrdersPage = () => {
 
   // 过滤订单
   const filteredOrders = orders.filter(order =>
-    order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.platform.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (order.orderId || order.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (order.platform || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     getStatusText(order.status).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -71,7 +71,7 @@ const OrdersPage = () => {
   const handleDeleteOrder = (orderId) => {
     if (window.confirm('确定要删除此订单吗？')) {
       deleteOrder(orderId);
-      setOrders(orders.filter(order => order.orderId !== orderId));
+      setOrders(orders.filter(order => (order.orderId || order.id) !== orderId));
     }
   };
 
@@ -103,7 +103,9 @@ const OrdersPage = () => {
       'waiting': theme.palette.warning.main,
       'processing': theme.palette.info.main,
       'completed': theme.palette.success.main,
-      'cancelled': theme.palette.error.main
+      'cancelled': theme.palette.error.main,
+      'pending': theme.palette.warning.main,
+      'in_progress': theme.palette.info.main
     };
 
     return statusColors[status] || theme.palette.text.primary;
@@ -302,7 +304,7 @@ const OrdersPage = () => {
 
                     return (
                       <TableRow
-                        key={order.orderId}
+                        key={order.orderId || order.id}
                         sx={{
                           '&:hover': {
                             bgcolor: 'rgba(60, 255, 220, 0.05)'
@@ -317,7 +319,7 @@ const OrdersPage = () => {
                             color: theme.palette.text.primary
                           }}
                         >
-                          {order.orderId}
+                          {order.orderId || order.id}
                         </TableCell>
                         <TableCell>
                           <Box
@@ -386,14 +388,14 @@ const OrdersPage = () => {
                             color: theme.palette.primary.main
                           }}
                         >
-                          {formatCurrency(order.totalAmount)}
+                          {formatCurrency(order.totalAmount || order.price)}
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Tooltip title="查看详情">
                               <IconButton
                                 size="small"
-                                onClick={() => handleViewOrder(order.orderId)}
+                                onClick={() => handleViewOrder(order.orderId || order.id)}
                                 sx={{
                                   color: theme.palette.info.main,
                                   '&:hover': {
@@ -409,7 +411,7 @@ const OrdersPage = () => {
                               <Tooltip title="模拟进度">
                                 <IconButton
                                   size="small"
-                                  onClick={() => handleSimulateProgress(order.orderId)}
+                                  onClick={() => handleSimulateProgress(order.orderId || order.id)}
                                   sx={{
                                     color: theme.palette.success.main,
                                     '&:hover': {
@@ -425,7 +427,7 @@ const OrdersPage = () => {
                             <Tooltip title="删除订单">
                               <IconButton
                                 size="small"
-                                onClick={() => handleDeleteOrder(order.orderId)}
+                                onClick={() => handleDeleteOrder(order.orderId || order.id)}
                                 sx={{
                                   color: theme.palette.error.main,
                                   '&:hover': {

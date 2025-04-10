@@ -29,7 +29,7 @@ const calculateOrderTotal = (services) => {
       total += value * pricing[key];
     }
   }
-  
+
   return parseFloat(total.toFixed(2));
 };
 
@@ -38,10 +38,10 @@ const createOrder = (platform, services, videoUrl) => {
   const orderId = generateOrderId();
   const timestamp = getCurrentTimestamp();
   const totalAmount = calculateOrderTotal(services);
-  
+
   // 计算总数量
   const totalQuantity = Object.values(services).reduce((sum, value) => sum + value, 0);
-  
+
   // 创建订单对象
   const order = {
     orderId,
@@ -56,10 +56,10 @@ const createOrder = (platform, services, videoUrl) => {
     createdAt: timestamp,
     updatedAt: timestamp,
   };
-  
+
   // 保存到本地存储
   saveOrder(order);
-  
+
   return order;
 };
 
@@ -68,13 +68,13 @@ const saveOrder = (order) => {
   try {
     // 获取现有订单
     const existingOrders = getOrders();
-    
+
     // 添加新订单
     existingOrders.push(order);
-    
+
     // 保存回本地存储
     localStorage.setItem('orders', JSON.stringify(existingOrders));
-    
+
     return true;
   } catch (error) {
     console.error('保存订单失败:', error);
@@ -104,25 +104,25 @@ const updateOrderStatus = (orderId, status, progress = null) => {
   try {
     const orders = getOrders();
     const orderIndex = orders.findIndex(order => order.orderId === orderId);
-    
+
     if (orderIndex === -1) {
       return false;
     }
-    
+
     // 更新状态
     orders[orderIndex].status = status;
-    
+
     // 如果提供了进度，也更新进度
     if (progress !== null) {
       orders[orderIndex].progress = progress;
     }
-    
+
     // 更新时间戳
     orders[orderIndex].updatedAt = getCurrentTimestamp();
-    
+
     // 保存回本地存储
     localStorage.setItem('orders', JSON.stringify(orders));
-    
+
     return true;
   } catch (error) {
     console.error('更新订单状态失败:', error);
@@ -135,10 +135,10 @@ const deleteOrder = (orderId) => {
   try {
     let orders = getOrders();
     orders = orders.filter(order => order.orderId !== orderId);
-    
+
     // 保存回本地存储
     localStorage.setItem('orders', JSON.stringify(orders));
-    
+
     return true;
   } catch (error) {
     console.error('删除订单失败:', error);
@@ -149,40 +149,40 @@ const deleteOrder = (orderId) => {
 // 模拟订单进度更新（在实际应用中，这将由后端服务处理）
 const simulateOrderProgress = (orderId, callback) => {
   const order = getOrderById(orderId);
-  
+
   if (!order || order.status === 'completed' || order.status === 'cancelled') {
     return;
   }
-  
+
   // 更新订单状态为"处理中"
   updateOrderStatus(orderId, 'processing', 0);
-  
+
   // 设置初始进度
   let progress = 0;
-  
+
   // 创建一个间隔，模拟进度更新
   const interval = setInterval(() => {
     // 随机增加进度
     progress += Math.random() * 10;
-    
+
     // 确保不超过100%
     if (progress >= 100) {
       progress = 100;
       clearInterval(interval);
-      
+
       // 更新订单状态为"已完成"
       updateOrderStatus(orderId, 'completed', 100);
     } else {
       // 更新进度
       updateOrderStatus(orderId, 'processing', Math.floor(progress));
     }
-    
+
     // 如果提供了回调，调用它
     if (callback) {
       callback(getOrderById(orderId));
     }
   }, 3000); // 每3秒更新一次
-  
+
   return interval;
 };
 
@@ -192,9 +192,11 @@ const getStatusText = (status) => {
     'waiting': '待处理',
     'processing': '进行中',
     'completed': '已完成',
-    'cancelled': '已取消'
+    'cancelled': '已取消',
+    'pending': '待处理',
+    'in_progress': '进行中'
   };
-  
+
   return statusMap[status] || status;
 };
 
