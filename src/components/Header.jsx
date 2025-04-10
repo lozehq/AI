@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -17,7 +17,10 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  Divider
+  Divider,
+  Badge,
+  Tooltip,
+  alpha
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import LoginIcon from '@mui/icons-material/Login';
@@ -25,12 +28,15 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { motion } from 'framer-motion';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import WalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // 导入认证对话框
 import AuthDialog from './AuthDialog';
 
 const Header = () => {
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -45,6 +51,15 @@ const Header = () => {
   // 用户菜单状态
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
+
+  // 通知菜单状态
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const notificationMenuOpen = Boolean(notificationAnchorEl);
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: '您的订单 ORD-123456 已完成', read: false },
+    { id: 2, message: '系统已成功充值 ¥100.00', read: false },
+    { id: 3, message: '新功能上线：支持抖音平台', read: true }
+  ]);
 
   // 初始化时检查用户登录状态
   useEffect(() => {
@@ -91,6 +106,18 @@ const Header = () => {
     setAnchorEl(null);
   };
 
+  // 打开通知菜单
+  const handleOpenNotificationMenu = (event) => {
+    setNotificationAnchorEl(event.currentTarget);
+    // 标记所有通知为已读
+    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  };
+
+  // 关闭通知菜单
+  const handleCloseNotificationMenu = () => {
+    setNotificationAnchorEl(null);
+  };
+
   // 注销
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -99,28 +126,193 @@ const Header = () => {
     handleCloseUserMenu();
   };
 
+  // 未读通知数量
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // 导航链接
+  const navLinks = [
+    { text: '首页', path: '/' },
+    { text: '服务', path: '/services' },
+    { text: '关于我们', path: '/about' }
+  ];
+
   const drawer = (
-    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
-      <Typography variant="h6" sx={{ my: 2 }}>
-        AI社区
-      </Typography>
+    <Box sx={{
+      textAlign: 'center',
+      height: '100%',
+      background: 'rgba(3, 11, 23, 0.95)',
+      backdropFilter: 'blur(10px)',
+      borderRight: '1px solid rgba(60, 255, 220, 0.1)',
+    }}>
+      <Box sx={{
+        py: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        borderBottom: '1px solid rgba(60, 255, 220, 0.1)',
+        mb: 2
+      }}>
+        <Typography
+          variant="h6"
+          component={RouterLink}
+          to="/"
+          sx={{
+            fontFamily: 'Orbitron',
+            fontWeight: 700,
+            color: 'primary.main',
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            mb: 1
+          }}
+        >
+          <Box component="span" className="gradient-text" sx={{ mr: 1 }}>
+            AI
+          </Box>
+          社区
+        </Typography>
+
+        {isLoggedIn && (
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Avatar
+              sx={{
+                width: 60,
+                height: 60,
+                mb: 1,
+                bgcolor: 'primary.main',
+                color: 'background.paper',
+                border: '2px solid rgba(60, 255, 220, 0.5)',
+                boxShadow: '0 0 10px rgba(60, 255, 220, 0.3)'
+              }}
+            >
+              {currentUser?.name?.charAt(0) || 'U'}
+            </Avatar>
+            <Typography variant="subtitle1" color="primary.main">
+              {currentUser?.name}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              余额: ¥{currentUser?.balance?.toFixed(2)}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+
       <List>
-        <ListItem button component={RouterLink} to="/">
-          <ListItemText primary="首页" />
-        </ListItem>
-        <ListItem button component={RouterLink} to="/services">
-          <ListItemText primary="服务" />
-        </ListItem>
-        <ListItem button component={RouterLink} to="/about">
-          <ListItemText primary="关于我们" />
-        </ListItem>
-        {isLoggedIn ? (
-          <ListItem button component={RouterLink} to="/dashboard">
-            <ListItemText primary="个人中心" />
+        {navLinks.map((link) => (
+          <ListItem
+            key={link.path}
+            component={RouterLink}
+            to={link.path}
+            selected={location.pathname === link.path}
+            sx={{
+              borderRadius: 1,
+              mx: 1,
+              mb: 1,
+              '&.Mui-selected': {
+                bgcolor: 'rgba(60, 255, 220, 0.1)',
+                '&:hover': {
+                  bgcolor: 'rgba(60, 255, 220, 0.15)',
+                }
+              },
+              '&:hover': {
+                bgcolor: 'rgba(60, 255, 220, 0.05)',
+              }
+            }}
+          >
+            <ListItemText
+              primary={link.text}
+              primaryTypographyProps={{
+                sx: {
+                  textAlign: 'center',
+                  fontWeight: location.pathname === link.path ? 600 : 400,
+                  color: location.pathname === link.path ? 'primary.main' : 'text.primary'
+                }
+              }}
+            />
           </ListItem>
+        ))}
+
+        {isLoggedIn ? (
+          <>
+            <ListItem
+              component={RouterLink}
+              to="/dashboard"
+              selected={location.pathname === '/dashboard'}
+              sx={{
+                borderRadius: 1,
+                mx: 1,
+                mb: 1,
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(60, 255, 220, 0.1)',
+                  '&:hover': {
+                    bgcolor: 'rgba(60, 255, 220, 0.15)',
+                  }
+                },
+                '&:hover': {
+                  bgcolor: 'rgba(60, 255, 220, 0.05)',
+                }
+              }}
+            >
+              <ListItemText
+                primary="个人中心"
+                primaryTypographyProps={{
+                  sx: {
+                    textAlign: 'center',
+                    fontWeight: location.pathname === '/dashboard' ? 600 : 400,
+                    color: location.pathname === '/dashboard' ? 'primary.main' : 'text.primary'
+                  }
+                }}
+              />
+            </ListItem>
+
+            <ListItem
+              button
+              onClick={handleLogout}
+              sx={{
+                borderRadius: 1,
+                mx: 1,
+                mb: 1,
+                '&:hover': {
+                  bgcolor: 'rgba(255, 77, 106, 0.1)',
+                }
+              }}
+            >
+              <ListItemText
+                primary="退出登录"
+                primaryTypographyProps={{
+                  sx: {
+                    textAlign: 'center',
+                    color: 'error.main'
+                  }
+                }}
+              />
+            </ListItem>
+          </>
         ) : (
-          <ListItem button onClick={handleOpenAuthDialog}>
-            <ListItemText primary="登录/注册" />
+          <ListItem
+            button
+            onClick={handleOpenAuthDialog}
+            sx={{
+              borderRadius: 1,
+              mx: 1,
+              mb: 1,
+              bgcolor: 'primary.main',
+              color: 'background.paper',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              }
+            }}
+          >
+            <ListItemText
+              primary="登录/注册"
+              primaryTypographyProps={{
+                sx: {
+                  textAlign: 'center',
+                  fontWeight: 600,
+                  color: 'background.paper'
+                }
+              }}
+            />
           </ListItem>
         )}
       </List>
@@ -129,14 +321,17 @@ const Header = () => {
 
   return (
     <>
-      <AppBar position="static" sx={{
-        background: 'rgba(5, 11, 31, 0.8)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(0, 240, 255, 0.3)',
-        boxShadow: '0 0 20px rgba(0, 240, 255, 0.1)'
-      }}>
-        <Container maxWidth="lg">
-          <Toolbar>
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          background: 'rgba(3, 11, 23, 0.8)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(60, 255, 220, 0.1)',
+        }}
+      >
+        <Container maxWidth="xl">
+          <Toolbar sx={{ py: 1 }}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -147,7 +342,6 @@ const Header = () => {
                 component={RouterLink}
                 to="/"
                 sx={{
-                  mr: 2,
                   fontFamily: 'Orbitron',
                   fontWeight: 700,
                   letterSpacing: '.1rem',
@@ -159,30 +353,67 @@ const Header = () => {
               >
                 <Box
                   component="span"
+                  className="gradient-text"
                   sx={{
                     mr: 1,
-                    color: '#00f0ff',
-                    textShadow: '0 0 10px rgba(0, 240, 255, 0.7)'
+                    fontSize: { xs: '1.5rem', md: '1.8rem' },
+                    fontWeight: 800
                   }}
                 >
                   AI
                 </Box>
-                社区
+                <Box
+                  component="span"
+                  sx={{
+                    fontSize: { xs: '1.2rem', md: '1.5rem' },
+                  }}
+                >
+                  社区
+                </Box>
               </Typography>
             </motion.div>
 
             {isMobile ? (
               <>
                 <Box sx={{ flexGrow: 1 }} />
+
+                {isLoggedIn && (
+                  <Box sx={{ mr: 1 }}>
+                    <Tooltip title="通知">
+                      <IconButton
+                        color="inherit"
+                        onClick={handleOpenNotificationMenu}
+                        sx={{
+                          mr: 1,
+                          border: '1px solid rgba(60, 255, 220, 0.3)',
+                          '&:hover': {
+                            bgcolor: 'rgba(60, 255, 220, 0.1)',
+                          }
+                        }}
+                      >
+                        <Badge badgeContent={unreadCount} color="error">
+                          <NotificationsIcon color="primary" />
+                        </Badge>
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                )}
+
                 <IconButton
                   color="inherit"
                   aria-label="open drawer"
                   edge="end"
                   onClick={handleDrawerToggle}
-                  sx={{ ml: 2 }}
+                  sx={{
+                    border: '1px solid rgba(60, 255, 220, 0.3)',
+                    '&:hover': {
+                      bgcolor: 'rgba(60, 255, 220, 0.1)',
+                    }
+                  }}
                 >
-                  <MenuIcon />
+                  <MenuIcon color="primary" />
                 </IconButton>
+
                 <Drawer
                   anchor="right"
                   open={mobileOpen}
@@ -192,8 +423,7 @@ const Header = () => {
                   }}
                   PaperProps={{
                     sx: {
-                      backgroundColor: 'background.paper',
-                      width: 240,
+                      width: 280,
                     },
                   }}
                 >
@@ -203,55 +433,92 @@ const Header = () => {
             ) : (
               <>
                 <Box sx={{ flexGrow: 1, display: 'flex', ml: 4 }}>
-                  <motion.div whileHover={{ scale: 1.05 }}>
-                    <Button
-                      component={RouterLink}
-                      to="/"
-                      sx={{
-                        color: 'text.primary',
-                        mx: 1,
-                        '&:hover': {
-                          color: 'primary.main',
-                        }
-                      }}
-                    >
-                      首页
-                    </Button>
-                  </motion.div>
-                  <motion.div whileHover={{ scale: 1.05 }}>
-                    <Button
-                      component={RouterLink}
-                      to="/services"
-                      sx={{
-                        color: 'text.primary',
-                        mx: 1,
-                        '&:hover': {
-                          color: 'primary.main',
-                        }
-                      }}
-                    >
-                      服务
-                    </Button>
-                  </motion.div>
-                  <motion.div whileHover={{ scale: 1.05 }}>
-                    <Button
-                      component={RouterLink}
-                      to="/about"
-                      sx={{
-                        color: 'text.primary',
-                        mx: 1,
-                        '&:hover': {
-                          color: 'primary.main',
-                        }
-                      }}
-                    >
-                      关于我们
-                    </Button>
-                  </motion.div>
+                  {navLinks.map((link) => (
+                    <motion.div key={link.path} whileHover={{ scale: 1.05 }}>
+                      <Button
+                        component={RouterLink}
+                        to={link.path}
+                        sx={{
+                          mx: 1,
+                          px: 2,
+                          py: 1,
+                          position: 'relative',
+                          color: location.pathname === link.path ? 'primary.main' : 'text.primary',
+                          '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            bottom: 0,
+                            left: location.pathname === link.path ? '10%' : '50%',
+                            width: location.pathname === link.path ? '80%' : '0%',
+                            height: '2px',
+                            bgcolor: 'primary.main',
+                            transition: 'all 0.3s ease',
+                            boxShadow: location.pathname === link.path ? '0 0 8px rgba(60, 255, 220, 0.5)' : 'none',
+                          },
+                          '&:hover': {
+                            bgcolor: 'transparent',
+                            color: 'primary.main',
+                            '&::after': {
+                              left: '10%',
+                              width: '80%',
+                            }
+                          }
+                        }}
+                      >
+                        {link.text}
+                      </Button>
+                    </motion.div>
+                  ))}
                 </Box>
-                <Box>
-                  {isLoggedIn ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {isLoggedIn && (
+                    <>
+                      <Tooltip title="通知">
+                        <IconButton
+                          onClick={handleOpenNotificationMenu}
+                          sx={{
+                            mr: 2,
+                            border: '1px solid rgba(60, 255, 220, 0.3)',
+                            '&:hover': {
+                              bgcolor: 'rgba(60, 255, 220, 0.1)',
+                              boxShadow: '0 0 10px rgba(60, 255, 220, 0.3)'
+                            }
+                          }}
+                        >
+                          <Badge badgeContent={unreadCount} color="error">
+                            <NotificationsIcon color="primary" />
+                          </Badge>
+                        </IconButton>
+                      </Tooltip>
+
+                      <Tooltip title="账户余额">
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            mr: 2,
+                            py: 0.5,
+                            px: 2,
+                            borderRadius: 2,
+                            border: '1px solid rgba(60, 255, 220, 0.3)',
+                            bgcolor: 'rgba(60, 255, 220, 0.05)',
+                          }}
+                        >
+                          <WalletIcon
+                            color="primary"
+                            fontSize="small"
+                            sx={{ mr: 1 }}
+                          />
+                          <Typography
+                            variant="body2"
+                            color="primary.main"
+                            fontWeight="bold"
+                          >
+                            ¥{currentUser?.balance?.toFixed(2) || '0.00'}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
+
                       <motion.div whileHover={{ scale: 1.05 }}>
                         <Button
                           component={RouterLink}
@@ -259,38 +526,47 @@ const Header = () => {
                           variant="outlined"
                           startIcon={<DashboardIcon />}
                           sx={{
-                            borderColor: 'primary.main',
-                            color: 'primary.main',
                             mr: 2,
+                            borderColor: location.pathname === '/dashboard' ? 'primary.main' : 'rgba(60, 255, 220, 0.3)',
+                            color: location.pathname === '/dashboard' ? 'primary.main' : 'text.primary',
+                            bgcolor: location.pathname === '/dashboard' ? 'rgba(60, 255, 220, 0.05)' : 'transparent',
                             '&:hover': {
-                              borderColor: 'primary.light',
-                              backgroundColor: 'rgba(0, 240, 255, 0.1)',
+                              borderColor: 'primary.main',
+                              bgcolor: 'rgba(60, 255, 220, 0.1)',
                             }
                           }}
                         >
                           个人中心
                         </Button>
                       </motion.div>
+                    </>
+                  )}
 
-                      <IconButton
-                        onClick={handleOpenUserMenu}
-                        sx={{
-                          p: 0,
-                          border: '2px solid rgba(0, 240, 255, 0.5)',
-                          '&:hover': {
-                            boxShadow: '0 0 10px rgba(0, 240, 255, 0.7)'
-                          }
-                        }}
-                      >
-                        <Avatar
+                  {isLoggedIn ? (
+                    <>
+                      <Tooltip title="账户设置">
+                        <IconButton
+                          onClick={handleOpenUserMenu}
                           sx={{
-                            bgcolor: 'primary.main',
-                            color: 'background.paper'
+                            p: 0,
+                            border: '2px solid rgba(60, 255, 220, 0.5)',
+                            '&:hover': {
+                              boxShadow: '0 0 10px rgba(60, 255, 220, 0.7)'
+                            }
                           }}
                         >
-                          {currentUser?.name?.charAt(0) || 'U'}
-                        </Avatar>
-                      </IconButton>
+                          <Avatar
+                            sx={{
+                              bgcolor: alpha(theme.palette.primary.main, 0.2),
+                              color: 'primary.main',
+                              fontFamily: 'Orbitron',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {currentUser?.name?.charAt(0) || 'U'}
+                          </Avatar>
+                        </IconButton>
+                      </Tooltip>
 
                       <Menu
                         anchorEl={anchorEl}
@@ -298,17 +574,19 @@ const Header = () => {
                         onClose={handleCloseUserMenu}
                         PaperProps={{
                           sx: {
-                            background: 'rgba(10, 18, 41, 0.95)',
-                            backdropFilter: 'blur(10px)',
-                            border: '1px solid rgba(0, 240, 255, 0.3)',
-                            boxShadow: '0 0 20px rgba(0, 240, 255, 0.2)',
                             mt: 1.5,
+                            background: 'rgba(3, 11, 23, 0.95)',
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(60, 255, 220, 0.1)',
+                            boxShadow: '0 0 20px rgba(0, 0, 0, 0.2), 0 0 10px rgba(60, 255, 220, 0.1)',
                             '& .MuiMenuItem-root': {
                               px: 2,
                               py: 1,
                               my: 0.5,
+                              borderRadius: 1,
+                              mx: 0.5,
                               '&:hover': {
-                                backgroundColor: 'rgba(0, 240, 255, 0.1)'
+                                bgcolor: 'rgba(60, 255, 220, 0.1)'
                               }
                             }
                           }
@@ -325,7 +603,7 @@ const Header = () => {
                           </Typography>
                         </Box>
 
-                        <Divider sx={{ borderColor: 'rgba(0, 240, 255, 0.2)' }} />
+                        <Divider sx={{ borderColor: 'rgba(60, 255, 220, 0.1)', my: 1 }} />
 
                         <MenuItem component={RouterLink} to="/dashboard">
                           <AccountCircleIcon sx={{ mr: 1, fontSize: 20 }} />
@@ -337,14 +615,14 @@ const Header = () => {
                           账户设置
                         </MenuItem>
 
-                        <Divider sx={{ borderColor: 'rgba(0, 240, 255, 0.2)' }} />
+                        <Divider sx={{ borderColor: 'rgba(60, 255, 220, 0.1)', my: 1 }} />
 
                         <MenuItem onClick={handleLogout}>
-                          <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
-                          退出登录
+                          <LogoutIcon sx={{ mr: 1, fontSize: 20, color: 'error.main' }} />
+                          <Typography color="error.main">退出登录</Typography>
                         </MenuItem>
                       </Menu>
-                    </Box>
+                    </>
                   ) : (
                     <motion.div whileHover={{ scale: 1.05 }}>
                       <Button
@@ -364,6 +642,79 @@ const Header = () => {
           </Toolbar>
         </Container>
       </AppBar>
+
+      {/* 通知菜单 */}
+      <Menu
+        anchorEl={notificationAnchorEl}
+        open={notificationMenuOpen}
+        onClose={handleCloseNotificationMenu}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            width: 320,
+            maxHeight: 400,
+            background: 'rgba(3, 11, 23, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(60, 255, 220, 0.1)',
+            boxShadow: '0 0 20px rgba(0, 0, 0, 0.2), 0 0 10px rgba(60, 255, 220, 0.1)',
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid rgba(60, 255, 220, 0.1)' }}>
+          <Typography variant="subtitle1" fontWeight="bold">
+            通知
+          </Typography>
+        </Box>
+
+        {notifications.length > 0 ? (
+          <List sx={{ py: 0 }}>
+            {notifications.map((notification) => (
+              <ListItem
+                key={notification.id}
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  borderBottom: '1px solid rgba(60, 255, 220, 0.05)',
+                  bgcolor: notification.read ? 'transparent' : 'rgba(60, 255, 220, 0.05)',
+                }}
+              >
+                <ListItemText
+                  primary={notification.message}
+                  primaryTypographyProps={{
+                    variant: 'body2',
+                    color: notification.read ? 'text.secondary' : 'text.primary',
+                    fontWeight: notification.read ? 'normal' : 'medium',
+                  }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        ) : (
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              暂无通知
+            </Typography>
+          </Box>
+        )}
+
+        <Box sx={{ p: 1.5, textAlign: 'center', borderTop: '1px solid rgba(60, 255, 220, 0.1)' }}>
+          <Button
+            component={RouterLink}
+            to="/notifications"
+            size="small"
+            sx={{
+              color: 'primary.main',
+              '&:hover': {
+                bgcolor: 'rgba(60, 255, 220, 0.05)',
+              }
+            }}
+          >
+            查看全部通知
+          </Button>
+        </Box>
+      </Menu>
 
       {/* 登录/注册对话框 */}
       <AuthDialog
