@@ -12,12 +12,27 @@ import AdminPanel from './pages/AdminPanel'
 import NotificationsPage from './pages/NotificationsPage'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
+import Login from './pages/Login'
+import OfflineIndicator from './components/OfflineIndicator'
+
+// 导入认证上下文
+import { AuthProvider } from './contexts/AuthContext'
+import { ErrorProvider } from './contexts/ErrorContext'
 
 // 导入用户管理工具
 import { userManager } from './utils/dataManager'
 
 // 导入调试工具
 import { printLocalStorage, resetLocalStorage, addAdminUser, loginAsAdmin } from './utils/debugHelper'
+
+// 导入紧急重置工具
+import { emergencyReset } from './utils/emergencyReset'
+
+// 导入状态验证工具
+import { validateAppState } from './utils/stateValidator'
+
+// 导入认证状态修复工具
+import { autoFixAuthState } from './utils/authFixer'
 
 // 导入主题和全局样式
 import theme from './styles/theme'
@@ -28,6 +43,56 @@ import './styles/globalStyles.css'
 function App() {
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
   const [debugMessage, setDebugMessage] = useState('');
+  const [stateValidated, setStateValidated] = useState(false);
+
+  // 在组件挂载时验证应用状态
+  React.useEffect(() => {
+    const validateState = async () => {
+      try {
+        console.log('应用启动时验证状态...');
+
+        // 先修复认证状态
+        const authFixed = autoFixAuthState();
+        if (authFixed) {
+          console.log('认证状态已修复');
+        }
+
+        // 然后验证应用状态
+        const isValid = await validateAppState();
+        setStateValidated(true);
+
+        // 如果状态无效，显示提示
+        if (!isValid) {
+          console.warn('应用状态验证失败，已尝试修复');
+          // 可以在这里添加提示或其他操作
+        }
+
+        // 检查 URL 参数
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // 如果有 reset=true，则清除参数
+        if (urlParams.has('reset')) {
+          // 清除 URL 参数，但不刷新页面
+          const newUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+
+        // 如果有 login=true 参数，则触发登录对话框
+        if (urlParams.has('login')) {
+          // 设置全局变量，通知 Header 组件打开登录对话框
+          window.shouldOpenAuthDialog = true;
+
+          // 清除 URL 参数，但不刷新页面
+          const newUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      } catch (error) {
+        console.error('状态验证过程中发生错误:', error);
+      }
+    };
+
+    validateState();
+  }, []);
 
   // 处理打印 localStorage 数据
   const handlePrintLocalStorage = () => {
@@ -48,11 +113,13 @@ function App() {
   };
 
   return (
-    <StyledEngineProvider injectFirst>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <div className="app">
-          <div className="grid-background">
+    <ErrorProvider>
+      <AuthProvider>
+      <StyledEngineProvider injectFirst>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <div className="app">
+            <div className="grid-background">
             <Header />
             <Routes>
               <Route path="/" element={
@@ -61,10 +128,23 @@ function App() {
                   <ServiceForm />
                 </React.Fragment>
               } />
-              <Route path="/dashboard" element={<UserDashboard />} />
-              <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <UserDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/orders" element={
+                <ProtectedRoute>
+                  <OrdersPage />
+                </ProtectedRoute>
+              } />
               <Route path="/service" element={<ServiceForm />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/notifications" element={
+                <ProtectedRoute>
+                  <NotificationsPage />
+                </ProtectedRoute>
+              } />
               <Route path="/admin" element={
                 <ProtectedRoute adminOnly={true}>
                   <AdminPanel />
@@ -72,6 +152,9 @@ function App() {
               } />
             </Routes>
             <Footer />
+
+            {/* 离线模式指示器 */}
+            <OfflineIndicator />
 
             {/* 调试按钮 */}
             <Box
@@ -90,9 +173,58 @@ function App() {
                 color="primary"
                 size="small"
                 onClick={() => setDebugDialogOpen(true)}
-                sx={{ opacity: 0.7 }}
+                sx={{ opacity: 0.7, mb: 1 }}
               >
                 调试工具
+              </Button>
+
+              {/* 紧急重置按钮 */}
+              <Button
+                variant="contained"
+                color="error"
+                size="small"
+                onClick={() => {
+                  if (window.confirm('确定要执行紧急重置吗？这将清除所有本地数据并重新加载页面。')) {
+                    emergencyReset();
+                  }
+                }}
+                sx={{ opacity: 0.7, mb: 1 }}
+              >
+                紧急重置
+              </Button>
+
+              {/* 紧急登录按钮 */}
+              <Button
+                variant="contained"
+                color="warning"
+                size="small"
+                onClick={() => {
+                  if (window.confirm('确定要执行紧急登录吗？这将以管理员身份登录。')) {
+                    // 使用 authFixer 中的强制登录功能
+                    window.authFixer.forceAdminLogin();
+                  }
+                }}
+                sx={{ opacity: 0.7, mb: 1 }}
+              >
+                紧急登录
+              </Button>
+
+              {/* 紧急退出按钮 */}
+              <Button
+                variant="contained"
+                color="info"
+                size="small"
+                onClick={() => {
+                  if (window.confirm('确定要执行紧急退出吗？这将清除所有登录状态。')) {
+                    // 使用 authFixer 中的强制退出功能
+                    window.authFixer.forceLogout();
+                    // 刷新页面
+                    window.location.replace(window.location.origin + '/login?logout=true&t=' + new Date().getTime());
+                  }
+                }}
+                sx={{ opacity: 0.7 }}
+              >
+                紧急退出
               </Button>
             </Box>
 
@@ -113,6 +245,20 @@ function App() {
                   }}>
                     直接登录为管理员
                   </Button>
+                  <Button variant="contained" color="success" onClick={() => {
+                    // 修复 localStorage 键名问题
+                    const currentUser = localStorage.getItem('currentUser');
+                    if (currentUser) {
+                      localStorage.setItem('current_user', currentUser);
+                      localStorage.setItem('auth_token', `token_${Date.now()}`);
+                      localStorage.removeItem('currentUser');
+                      setDebugMessage('已将 currentUser 转换为 current_user 并添加令牌');
+                    } else {
+                      setDebugMessage('未找到 currentUser 数据');
+                    }
+                  }}>
+                    修复 localStorage 键名
+                  </Button>
                   <Button variant="outlined" color="error" onClick={handleResetLocalStorage}>
                     重置所有数据
                   </Button>
@@ -132,6 +278,8 @@ function App() {
         </div>
       </ThemeProvider>
     </StyledEngineProvider>
+  </AuthProvider>
+  </ErrorProvider>
   )
 }
 

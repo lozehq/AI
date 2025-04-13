@@ -33,39 +33,40 @@ const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  
+
   const user = userManager.getCurrentUser();
-  
+
   // 加载通知
   const loadNotifications = () => {
     if (!user) return;
-    
-    const allNotifications = notificationManager.getAllNotifications();
-    setNotifications(allNotifications);
+
+    const userNotifications = notificationManager.getUserNotifications(user.id);
+    setNotifications(userNotifications);
+    console.log('通知页面加载的通知:', userNotifications);
   };
-  
+
   // 初始加载
   useEffect(() => {
     loadNotifications();
   }, []);
-  
+
   // 查看通知详情
   const handleViewNotification = (notification) => {
     setSelectedNotification(notification);
     setDialogOpen(true);
-    
+
     // 标记为已读
     if (user) {
       notificationManager.markAsRead(user.id, notification.id);
       loadNotifications(); // 重新加载通知以更新未读状态
     }
   };
-  
+
   // 关闭通知详情
   const handleCloseDialog = () => {
     setDialogOpen(false);
   };
-  
+
   // 标记所有通知为已读
   const handleMarkAllAsRead = () => {
     if (user) {
@@ -73,7 +74,7 @@ const NotificationsPage = () => {
       loadNotifications();
     }
   };
-  
+
   // 获取通知图标
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -87,7 +88,7 @@ const NotificationsPage = () => {
         return <InfoIcon sx={{ color: 'info.main' }} />;
     }
   };
-  
+
   // 获取通知颜色
   const getNotificationColor = (type) => {
     switch (type) {
@@ -101,23 +102,23 @@ const NotificationsPage = () => {
         return 'info.main';
     }
   };
-  
+
   // 检查通知是否已读
   const isNotificationRead = (notificationId) => {
     if (!user) return true;
-    
+
     const userReadStatus = notificationManager.getUserReadStatus(user.id);
     return userReadStatus.includes(notificationId);
   };
-  
+
   // 获取未读通知数量
   const getUnreadCount = () => {
     if (!user) return 0;
-    
+
     const userReadStatus = notificationManager.getUserReadStatus(user.id);
     return notifications.filter(notification => !userReadStatus.includes(notification.id)).length;
   };
-  
+
   return (
     <ProtectedRoute>
       <Container maxWidth="md" sx={{ py: 4 }}>
@@ -141,7 +142,7 @@ const NotificationsPage = () => {
             >
               通知中心
             </Typography>
-            
+
             {getUnreadCount() > 0 && (
               <Button
                 variant="outlined"
@@ -153,7 +154,7 @@ const NotificationsPage = () => {
               </Button>
             )}
           </Box>
-          
+
           <Paper
             elevation={3}
             sx={{
@@ -175,7 +176,7 @@ const NotificationsPage = () => {
               <List sx={{ p: 0 }}>
                 {notifications.map((notification, index) => {
                   const isRead = isNotificationRead(notification.id);
-                  
+
                   return (
                     <React.Fragment key={notification.id}>
                       {index > 0 && <Divider sx={{ opacity: 0.1 }} />}
@@ -207,7 +208,7 @@ const NotificationsPage = () => {
                               >
                                 {notification.title}
                               </Typography>
-                              
+
                               {!isRead && (
                                 <Chip
                                   label="新"
@@ -269,7 +270,7 @@ const NotificationsPage = () => {
           </Paper>
         </motion.div>
       </Container>
-      
+
       {/* 通知详情对话框 */}
       <Dialog
         open={dialogOpen}
@@ -300,7 +301,7 @@ const NotificationsPage = () => {
               <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
                 {selectedNotification.content}
               </Typography>
-              
+
               <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Chip
                   label={selectedNotification.type}
@@ -312,7 +313,7 @@ const NotificationsPage = () => {
                     textTransform: 'capitalize'
                   }}
                 />
-                
+
                 <Typography variant="caption" color="text.secondary">
                   {new Date(selectedNotification.createdAt).toLocaleString()}
                 </Typography>

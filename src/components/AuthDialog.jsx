@@ -115,8 +115,9 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
           console.log('登录成功，用户信息：', user);
           console.log('管理员状态：', !!user.isAdmin);
 
-          // 存储用户会话
-          localStorage.setItem('currentUser', JSON.stringify(user));
+          // 存储用户会话 - 使用与 AuthContext 一致的键名
+          localStorage.setItem('current_user', JSON.stringify(user));
+          localStorage.setItem('auth_token', `token_${Date.now()}`); // 添加令牌
 
           // 通知父组件
           if (onLogin) {
@@ -140,79 +141,117 @@ const AuthDialog = ({ open, onClose, onLogin }) => {
   };
 
   // 处理注册提交
-  const handleRegisterSubmit = () => {
+  const handleRegisterSubmit = async () => {
     setLoading(true);
     setError('');
+    setSuccess('');
 
-    // 验证表单
-    if (!registerForm.username || !registerForm.email || !registerForm.phone || !registerForm.password || !registerForm.inviteCode) {
-      setError('请填写所有必填字段，包括邀请码');
-      setLoading(false);
-      return;
-    }
-
-    if (registerForm.password !== registerForm.confirmPassword) {
-      setError('两次输入的密码不一致');
-      setLoading(false);
-      return;
-    }
-
-    // 验证邀请码
-    const inviteCodeResult = inviteCodeManager.validateInviteCode(registerForm.inviteCode);
-    if (!inviteCodeResult.valid) {
-      setError('邀请码无效: ' + inviteCodeResult.message);
-      setLoading(false);
-      return;
-    }
-
-    // 模拟API调用延迟
-    setTimeout(() => {
-      try {
-        // 获取所有用户
-        const users = userManager.getAllUsers();
-
-        // 检查用户名是否已存在
-        if (users.some(u => u.name === registerForm.username)) {
-          setError('用户名已存在');
-          setLoading(false);
-          return;
-        }
-
-        // 使用邀请码
-        inviteCodeManager.useInviteCode(registerForm.inviteCode);
-
-        // 创建新用户
-        const newUser = userManager.createUser({
-          name: registerForm.username,
-          email: registerForm.email,
-          phone: registerForm.phone,
-          password: registerForm.password,
-          balance: 0.00, // 新用户初始余额
-          isAdmin: inviteCodeResult.isAdmin // 根据邀请码设置管理员权限
-        });
-
-        // 注册成功
-        setSuccess('注册成功！' + (inviteCodeResult.isAdmin ? ' (管理员账户)' : ''));
-
-        // 存储用户会话
-        localStorage.setItem('currentUser', JSON.stringify(newUser));
-
-        // 通知父组件
-        if (onLogin) {
-          onLogin(newUser);
-        }
-
-        // 关闭对话框
-        setTimeout(() => {
-          onClose();
-        }, 1500);
-      } catch (err) {
-        setError('注册失败，请稍后再试');
-        console.error('Register error:', err);
-      } finally {
-        setLoading(false);
+    try {
+      // 验证表单
+      if (!registerForm.username || !registerForm.email || !registerForm.phone || !registerForm.password || !registerForm.inviteCode) {
+        setError('请填写所有必填字段，包括邀请码');
+        return;
       }
-    }, 1000);
+
+      if (registerForm.password !== registerForm.confirmPassword) {
+        setError('两次输入的密码不一致');
+        return;
+      }
+
+      // 验证邀请码 - 异步函数
+      console.log('开始验证邀请码:', registerForm.inviteCode);
+      const inviteCodeResult = await inviteCodeManager.validateInviteCode(registerForm.inviteCode);
+      console.log('邀请码验证结果:', inviteCodeResult);
+
+      if (!inviteCodeResult.valid) {
+        setError('邀请码无效: ' + inviteCodeResult.message);
+        return;
+      }
+
+      // 模拟API调用延迟
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 获取所有用户 - 异步函数
+      console.log('开始获取所有用户');
+      const users = await userManager.getAllUsers();
+      console.log('获取到用户列表:', users);
+
+      // 检查用户名是否已存在
+      if (Array.isArray(users) && users.some(u => u.name === registerForm.username)) {
+        setError('用户名已存在');
+        return;
+      }
+
+      // 使用邀请码 - 异步函数
+      console.log('开始使用邀请码:', registerForm.inviteCode);
+      const useResult = await inviteCodeManager.useInviteCode(registerForm.inviteCode);
+      console.log('使用邀请码结果:', useResult);
+
+      if (!useResult.success) {
+        setError('使用邀请码失败: ' + useResult.message);
+        return;
+      }
+
+      // 创建新用户 - 异步函数
+      console.log('开始创建新用户');
+      const createResult = await userManager.createUser({
+        name: registerForm.username,
+        email: registerForm.email,
+        phone: registerForm.phone,
+        password: registerForm.password,
+        balance: 0.00, // 新用户初始余额
+        isAdmin: inviteCodeResult.isAdmin // 根据邀请码设置管理员权限
+      });
+      console.log('创建用户结果:', createResult);
+
+      if (!createResult.success) {
+        // 处理错误对象
+        if (createResult.errors) {
+          // 如果有通用错误消息
+          if (createResult.errors.general) {
+            setError('创建用户失败: ' + createResult.errors.general);
+          }
+          // 如果有具体字段错误
+          else if (Object.keys(createResult.errors).length > 0) {
+            const errorField = Object.keys(createResult.errors)[0];
+            const errorMsg = createResult.errors[errorField];
+            setError(`创建用户失败: ${errorField} - ${errorMsg}`);
+          }
+          // 如果没有具体错误信息
+          else {
+            setError('创建用户失败，请重试');
+          }
+        } else {
+          setError('创建用户失败: ' + (createResult.message || '请重试'));
+        }
+        console.error('创建用户错误详情:', createResult);
+        return;
+      }
+
+      const newUser = createResult.user;
+
+      // 注册成功
+      setSuccess('注册成功！' + (inviteCodeResult.isAdmin ? ' (管理员账户)' : ''));
+
+      // 存储用户会话 - 使用与 AuthContext 一致的键名
+      localStorage.setItem('current_user', JSON.stringify(newUser));
+      localStorage.setItem('auth_token', `token_${Date.now()}`); // 添加令牌
+
+      // 通知父组件
+      if (onLogin) {
+        onLogin(newUser);
+      }
+
+      // 关闭对话框
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setError('注册失败，请稍后再试');
+      console.error('Register error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

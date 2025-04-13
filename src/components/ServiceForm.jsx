@@ -45,6 +45,20 @@ const ServiceForm = () => {
   const [isDetecting, setIsDetecting] = useState(false);
   // 初始化选中的服务
   const [selectedServices, setSelectedServices] = useState({});
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // 加载用户信息
+  useEffect(() => {
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setCurrentUser(user);
+      } catch (err) {
+        console.error('Failed to parse user data:', err);
+      }
+    }
+  }, []);
 
   // 初始化选中的服务
   useEffect(() => {
@@ -265,8 +279,14 @@ const ServiceForm = () => {
         }
       }
 
+      // 检查用户是否登录
+      if (!currentUser || !currentUser.id) {
+        setError('请先登录再创建订单');
+        return;
+      }
+
       // 创建订单
-      const order = createOrder(detectedPlatform, filteredServices, videoUrl);
+      const order = createOrder(detectedPlatform, filteredServices, videoUrl, currentUser.id);
 
       if (!order || !order.orderId) {
         throw new Error('订单创建失败，返回的订单数据无效');

@@ -1,4 +1,5 @@
 // 订单服务 - 管理订单的创建、存储和检索
+import { transactionManager, TRANSACTION_TYPES } from '../utils/transactionManager';
 
 // 生成唯一的订单ID
 const generateOrderId = () => {
@@ -51,7 +52,7 @@ const calculateOrderTotal = (services) => {
 };
 
 // 创建新订单
-const createOrder = (platform, services, videoUrl) => {
+const createOrder = (platform, services, videoUrl, userId) => {
   try {
     // 验证参数
     if (!platform) {
@@ -64,6 +65,10 @@ const createOrder = (platform, services, videoUrl) => {
 
     if (!videoUrl) {
       throw new Error('视频链接不能为空');
+    }
+
+    if (!userId) {
+      throw new Error('用户ID不能为空');
     }
 
     // 检查是否有有效的服务项
@@ -92,6 +97,7 @@ const createOrder = (platform, services, videoUrl) => {
       totalQuantity,
       createdAt: timestamp,
       updatedAt: timestamp,
+      userId // 添加用户ID
     };
 
     // 保存到本地存储
@@ -99,6 +105,36 @@ const createOrder = (platform, services, videoUrl) => {
 
     if (!saveResult) {
       throw new Error('保存订单失败');
+    }
+
+    // 创建消费交易记录
+    if (userId) {
+      // 生成服务项描述
+      const serviceDesc = Object.entries(services)
+        .filter(([_, value]) => value > 0)
+        .map(([key, value]) => {
+          const serviceNames = {
+            views: '播放量',
+            likes: '点赞数',
+            shares: '分享数',
+            comments: '评论数',
+            followers: '粉丝数',
+            completionRate: '完播率',
+            saves: '收藏量',
+            coins: '投币数',
+            reads: '阅读量'
+          };
+          return `${serviceNames[key] || key}: ${value}`;
+        })
+        .join(', ');
+
+      transactionManager.createTransaction(
+        userId,
+        -totalAmount, // 负数表示支出
+        TRANSACTION_TYPES.CONSUMPTION,
+        `购买服务: ${platform} (${serviceDesc})`,
+        orderId
+      );
     }
 
     return order;

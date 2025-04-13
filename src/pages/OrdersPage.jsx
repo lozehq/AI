@@ -25,7 +25,8 @@ import {
   DialogActions,
   Slider,
   Snackbar,
-  Alert
+  Alert,
+  Grid
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -38,7 +39,7 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { getOrders, deleteOrder, getStatusText, simulateOrderProgress, updateOrderStatus } from '../services/orderService';
+import { getOrders, deleteOrder, getStatusText, simulateOrderProgress, updateOrderStatus, getOrderById } from '../services/orderService';
 import { formatCurrency } from '../utils/formatters';
 import { userManager } from '../utils/dataManager';
 
@@ -63,34 +64,46 @@ const OrdersPage = () => {
     severity: 'info'
   });
 
-  // 加载订单数据和检查管理员权限
+  // 检查用户权限
+  useEffect(() => {
+    const user = userManager.getCurrentUser();
+    setCurrentUser(user);
+    setIsAdmin(user?.isAdmin || false);
+
+    // 打印调试信息
+    console.log('当前用户：', user);
+    console.log('管理员状态：', user?.isAdmin || false);
+  }, []);
+
+  // 加载订单数据
   useEffect(() => {
     const loadOrders = () => {
       setLoading(true);
-      const orderData = getOrders();
-      setOrders(orderData);
+      const allOrders = getOrders();
+
+      // 如果是管理员，显示所有订单，否则只显示当前用户的订单
+      if (currentUser) {
+        if (currentUser.isAdmin) {
+          setOrders(allOrders);
+        } else {
+          // 过滤出当前用户的订单
+          const userOrders = allOrders.filter(order => order.userId === currentUser.id);
+          setOrders(userOrders);
+        }
+      } else {
+        setOrders([]);
+      }
+
       setLoading(false);
     };
 
-    // 检查用户权限
-    const checkUserRole = () => {
-      const user = userManager.getCurrentUser();
-      setCurrentUser(user);
-      setIsAdmin(user?.isAdmin || false);
-
-      // 打印调试信息
-      console.log('当前用户：', user);
-      console.log('管理员状态：', user?.isAdmin || false);
-    };
-
     loadOrders();
-    checkUserRole();
 
     // 设置定时器，每5秒刷新一次订单数据
     const intervalId = setInterval(loadOrders, 5000);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [currentUser, isAdmin]);
 
   // 处理搜索
   const handleSearch = (event) => {
@@ -763,7 +776,7 @@ const OrdersPage = () => {
                     基本信息
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid container size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <Typography variant="subtitle2" color="text.secondary">
                         订单编号
                       </Typography>
@@ -771,7 +784,7 @@ const OrdersPage = () => {
                         {selectedOrder.orderId || selectedOrder.id}
                       </Typography>
                     </Grid>
-                    <Grid container size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <Typography variant="subtitle2" color="text.secondary">
                         创建时间
                       </Typography>
@@ -779,7 +792,7 @@ const OrdersPage = () => {
                         {new Date(selectedOrder.createdAt).toLocaleString()}
                       </Typography>
                     </Grid>
-                    <Grid container size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <Typography variant="subtitle2" color="text.secondary">
                         平台
                       </Typography>
@@ -793,7 +806,7 @@ const OrdersPage = () => {
                         }[selectedOrder.platform] || selectedOrder.platform}
                       </Typography>
                     </Grid>
-                    <Grid container size={{ xs: 12, sm: 6 }}>
+                    <Grid item xs={12} sm={6}>
                       <Typography variant="subtitle2" color="text.secondary">
                         金额
                       </Typography>

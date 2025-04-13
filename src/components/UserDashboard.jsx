@@ -28,7 +28,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -40,11 +41,19 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AddIcon from '@mui/icons-material/Add';
 import InboxIcon from '@mui/icons-material/Inbox';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import PaymentIcon from '@mui/icons-material/Payment';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useError } from '../contexts/ErrorContext';
 
 // 导入数据管理工具
 import { orderManager, userManager } from '../utils/dataManager';
 import { cardKeyManager, formatCardKey } from '../utils/cardKeyManager';
+import { transactionManager, TRANSACTION_TYPES } from '../utils/transactionManager';
 import { formatCurrency } from '../utils/formatters';
 
 // 空的订单数组
@@ -90,8 +99,10 @@ const UserDashboard = () => {
 
   const [tabValue, setTabValue] = useState(getInitialTabValue());
   const [orders, setOrders] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
+  const { currentUser } = useAuth();
+  const { showError } = useError();
 
   // 个人信息表单状态
   const [userForm, setUserForm] = useState({
@@ -107,41 +118,37 @@ const UserDashboard = () => {
     confirmPassword: ''
   });
 
-  // 提示消息状态
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'info'
-  });
+  // 不再需要单独的提示消息状态，使用 ErrorContext 代替
 
   // 加载用户数据
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setCurrentUser(user);
+    if (currentUser) {
+      // 初始化个人信息表单
+      setUserForm({
+        name: currentUser.name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || ''
+      });
 
-        // 初始化个人信息表单
-        setUserForm({
-          name: user.name || '',
-          email: user.email || '',
-          phone: user.phone || ''
-        });
+      // 加载用户的订单和交易记录
+      const loadUserData = async () => {
+        try {
+          // 加载用户的订单
+          const userOrders = await orderManager.getOrdersByUserId(currentUser.id);
+          setOrders(userOrders);
 
-        // 加载用户的订单
-        // 在实际应用中，这里应该从后端获取用户的订单
-        // 目前使用空数组，等待后端集成
-      } catch (err) {
-        console.error('Failed to parse user data:', err);
-        // 如果没有登录，重定向到首页
-        navigate('/');
-      }
-    } else {
-      // 如果没有登录，重定向到首页
-      navigate('/');
+          // 加载用户的交易记录
+          const userTransactions = await transactionManager.getUserTransactions(currentUser.id);
+          setTransactions(userTransactions);
+        } catch (error) {
+          console.error('加载用户数据失败:', error);
+          showError('加载用户数据失败，请重试', 'error');
+        }
+      };
+
+      loadUserData();
     }
-  }, [navigate]);
+  }, [currentUser, showError]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -162,22 +169,9 @@ const UserDashboard = () => {
     setSearchTerm(event.target.value);
   };
 
-  // 显示提示消息
-  const showSnackbar = (message, severity = 'info') => {
-    setSnackbar({
-      open: true,
-      message,
-      severity
-    });
-  };
+  // 不再需要显示提示消息的函数，因为使用 ErrorContext 处理
 
-  // 关闭提示消息
-  const handleCloseSnackbar = () => {
-    setSnackbar({
-      ...snackbar,
-      open: false
-    });
-  };
+  // 不再需要关闭提示消息的函数，因为使用 ErrorContext 处理
 
   // 处理个人信息表单变化
   const handleUserFormChange = (e) => {
@@ -218,16 +212,16 @@ const UserDashboard = () => {
       });
 
       if (result) {
-        // 更新本地存储和状态
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        // 不再需要更新本地存储，因为使用 AuthContext 管理用户状态
+        // 只需要更新当前组件中的用户状态
         setCurrentUser(updatedUser);
-        showSnackbar('个人信息已成功更新', 'success');
+        showError('个人信息已成功更新', 'success');
       } else {
-        showSnackbar('更新个人信息失败', 'error');
+        showError('更新个人信息失败', 'error');
       }
     } catch (error) {
       console.error('保存个人信息失败:', error);
-      showSnackbar('保存个人信息失败', 'error');
+      showError('保存个人信息失败', 'error');
     }
   };
 
@@ -237,18 +231,18 @@ const UserDashboard = () => {
 
     // 验证表单
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      showSnackbar('请填写所有密码字段', 'warning');
+      showError('请填写所有密码字段', 'warning');
       return;
     }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showSnackbar('新密码与确认密码不一致', 'warning');
+      showError('新密码与确认密码不一致', 'warning');
       return;
     }
 
     // 验证当前密码
     if (passwordForm.currentPassword !== currentUser.password) {
-      showSnackbar('当前密码不正确', 'error');
+      showError('当前密码不正确', 'error');
       return;
     }
 
@@ -265,8 +259,8 @@ const UserDashboard = () => {
       });
 
       if (result) {
-        // 更新本地存储和状态
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        // 不再需要更新本地存储，因为使用 AuthContext 管理用户状态
+        // 只需要更新当前组件中的用户状态
         setCurrentUser(updatedUser);
 
         // 重置密码表单
@@ -276,13 +270,13 @@ const UserDashboard = () => {
           confirmPassword: ''
         });
 
-        showSnackbar('密码已成功更新', 'success');
+        showError('密码已成功更新', 'success');
       } else {
-        showSnackbar('更新密码失败', 'error');
+        showError('更新密码失败', 'error');
       }
     } catch (error) {
       console.error('更新密码失败:', error);
-      showSnackbar('更新密码失败', 'error');
+      showError('更新密码失败', 'error');
     }
   };
 
@@ -313,7 +307,7 @@ const UserDashboard = () => {
   };
 
   // 使用卡密充值
-  const handleUseCardKey = () => {
+  const handleUseCardKey = async () => {
     if (!currentUser) return;
 
     // 验证卡密
@@ -322,70 +316,129 @@ const UserDashboard = () => {
       return;
     }
 
-    // 验证卡密是否有效
-    const validationResult = cardKeyManager.validateCardKey(cardKeyForm.code);
-    if (!validationResult.valid) {
-      showSnackbar(validationResult.message, 'error');
+    try {
+      // 验证卡密是否有效
+      const validationResult = await cardKeyManager.validateCardKey(cardKeyForm.code);
+      if (!validationResult.valid) {
+        showSnackbar(validationResult.message, 'error');
+        return;
+      }
+
+      // 使用卡密
+      const result = await cardKeyManager.useCardKey(cardKeyForm.code, currentUser.id);
+      if (result.success) {
+        // 更新用户余额
+        const updatedUser = {
+          ...currentUser,
+          balance: (currentUser.balance || 0) + result.amount
+        };
+
+        // 不再需要更新本地存储，因为使用 AuthContext 管理用户状态
+        // 只需要更新当前组件中的用户状态
+        setCurrentUser(updatedUser);
+
+        // 创建充值交易记录
+        const transactionResult = await transactionManager.createTransaction(
+          currentUser.id,
+          result.amount,
+          TRANSACTION_TYPES.RECHARGE,
+          `卡密充值: ${formatCardKey(result.cardKey)}`,
+          result.cardKey
+        );
+
+        if (!transactionResult.success) {
+          // 如果有错误，显示错误信息
+          const errorMessage = transactionResult.errors?.general || Object.values(transactionResult.errors || {}).join(', ');
+          showError(errorMessage || '创建充值交易记录失败', 'error');
+          return;
+        }
+
+        // 更新交易记录列表
+        setTransactions(prev => [transactionResult.transaction, ...prev]);
+      } else {
+        showError(result.message || '卡密无效或已被使用', 'error');
+        return;
+      }
+    } catch (error) {
+      console.error('充值失败:', error);
+      showError('充值失败，请重试', 'error');
       return;
     }
 
-    // 使用卡密
-    const result = cardKeyManager.useCardKey(cardKeyForm.code, currentUser.id);
-    if (result.success) {
-      // 更新用户余额
-      const updatedUser = {
-        ...currentUser,
-        balance: (currentUser.balance || 0) + result.amount
-      };
+    // 关闭对话框
+    setRechargeDialog(false);
 
-      // 更新本地存储
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      setCurrentUser(updatedUser);
-
-      // 关闭对话框
-      setRechargeDialog(false);
-
-      // 显示成功消息
-      showSnackbar(`充值成功！已添加${formatCurrency(result.amount)}到您的账户`, 'success');
-    } else {
-      showSnackbar(result.message, 'error');
-    }
+    // 显示成功消息
+    showError(`充值成功！已添加${formatCurrency(result.amount)}到您的账户`, 'success');
   };
 
   // 提现功能
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     if (!currentUser || currentUser.balance < 50) {
-      showSnackbar('余额不足，无法提现', 'warning');
+      showError('余额不足，无法提现', 'warning');
       return;
     }
+
+    // 提现金额
+    const withdrawAmount = 50;
 
     // 模拟提现操作
     const updatedUser = {
       ...currentUser,
-      balance: currentUser.balance - 50 // 每次提现50元
+      balance: currentUser.balance - withdrawAmount
     };
 
-    // 更新本地存储
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    // 不再需要更新本地存储，因为使用 AuthContext 管理用户状态
+    // 只需要更新当前组件中的用户状态
     setCurrentUser(updatedUser);
 
+    // 创建提现交易记录
+    try {
+      const result = await transactionManager.createTransaction(
+        currentUser.id,
+        -withdrawAmount, // 负数表示支出
+        TRANSACTION_TYPES.WITHDRAWAL,
+        `提现申请: ${formatCurrency(withdrawAmount)}`,
+        null
+      );
+
+      if (!result.success) {
+        // 如果有错误，显示错误信息
+        const errorMessage = result.errors?.general || Object.values(result.errors || {}).join(', ');
+        showError(errorMessage || '提现申请失败', 'error');
+        return;
+      }
+
+      // 更新交易记录列表
+      setTransactions(prev => [result.transaction, ...prev]);
+    } catch (error) {
+      console.error('创建提现交易记录失败:', error);
+      showError('提现申请失败，请重试', 'error');
+      return;
+    }
+
     // 显示成功消息
-    showSnackbar('提现申请已提交，50元将在1-3个工作日到账', 'success');
+    showError(`提现申请已提交，${formatCurrency(withdrawAmount)}将在1-3个工作日到账`, 'success');
   };
 
   // Filter orders based on search term
-  const filteredOrders = orders.length > 0 ? orders.filter(order =>
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.platformName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (order.url && order.url.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) : [];
+  const filteredOrders = orders.length > 0 ? orders.filter(order => {
+    // 确保所有属性都存在再进行搜索
+    const orderId = order.id || order.orderId || '';
+    const platform = order.platformName || order.platform || '';
+    const url = order.url || order.videoUrl || '';
+
+    return orderId.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+           platform.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+           url.toString().toLowerCase().includes(searchTerm.toLowerCase());
+  }) : [];
 
   return (
     <Box sx={{ py: 6, minHeight: '80vh' }}>
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Sidebar */}
-          <Grid container size={{ xs: 12, md: 3 }}>
+          <Grid item xs={12} md={3}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -485,7 +538,7 @@ const UserDashboard = () => {
           </Grid>
 
           {/* Main content */}
-          <Grid container size={{ xs: 12, md: 9 }}>
+          <Grid item xs={12} md={9}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -637,11 +690,76 @@ const UserDashboard = () => {
                   </Typography>
 
                   <Card className="glass-panel">
-                    <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
-                        暂无交易记录
-                      </Typography>
-                    </CardContent>
+                    {transactions.length > 0 ? (
+                      <TableContainer>
+                        <Table>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>时间</TableCell>
+                              <TableCell>类型</TableCell>
+                              <TableCell>描述</TableCell>
+                              <TableCell align="right">金额</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {transactions.map((transaction) => {
+                              // 格式化日期
+                              const date = new Date(transaction.createdAt);
+                              const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+                              // 交易类型图标和颜色
+                              let icon, color;
+                              if (transaction.type === TRANSACTION_TYPES.RECHARGE) {
+                                icon = <ArrowUpwardIcon fontSize="small" />;
+                                color = 'success.main';
+                              } else if (transaction.type === TRANSACTION_TYPES.CONSUMPTION) {
+                                icon = <ShoppingCartIcon fontSize="small" />;
+                                color = 'error.main';
+                              } else if (transaction.type === TRANSACTION_TYPES.WITHDRAWAL) {
+                                icon = <ArrowDownwardIcon fontSize="small" />;
+                                color = 'error.main';
+                              } else if (transaction.type === TRANSACTION_TYPES.REFUND) {
+                                icon = <PaymentIcon fontSize="small" />;
+                                color = 'info.main';
+                              }
+
+                              // 交易类型文本
+                              const typeText = {
+                                [TRANSACTION_TYPES.RECHARGE]: '充值',
+                                [TRANSACTION_TYPES.CONSUMPTION]: '消费',
+                                [TRANSACTION_TYPES.WITHDRAWAL]: '提现',
+                                [TRANSACTION_TYPES.REFUND]: '退款'
+                              }[transaction.type] || '其他';
+
+                              return (
+                                <TableRow key={transaction.id}>
+                                  <TableCell>{formattedDate}</TableCell>
+                                  <TableCell>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Box sx={{ color }}>{icon}</Box>
+                                      {typeText}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>{transaction.description}</TableCell>
+                                  <TableCell align="right" sx={{ color: transaction.amount >= 0 ? 'success.main' : 'error.main', fontWeight: 'bold' }}>
+                                    {transaction.amount >= 0 ? '+' : ''}{formatCurrency(transaction.amount)}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    ) : (
+                      <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <ReceiptIcon sx={{ fontSize: 60, opacity: 0.5 }} />
+                          <Typography variant="body1" color="text.secondary">
+                            暂无交易记录
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    )}
                   </Card>
                 </Box>
               )}
@@ -807,16 +925,7 @@ const UserDashboard = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      {/* 不再需要 Snackbar，因为使用 ErrorContext 处理 */}
     </Box>
   );
 };

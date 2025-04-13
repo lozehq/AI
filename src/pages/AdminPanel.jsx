@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -36,6 +36,7 @@ import {
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -133,53 +134,64 @@ const AdminPanel = () => {
     createdAt: ''
   });
 
-  // 检查当前用户是否是管理员
-  useEffect(() => {
-    const checkAdmin = () => {
-      const user = userManager.getCurrentUser();
-      if (!user || !user.isAdmin) {
-        // 如果不是管理员，重定向到首页
-        navigate('/');
-        return;
-      }
+  // 使用 AuthContext 中的 isAdmin 方法
+  const { isAdmin } = useAuth();
 
-      // 加载数据
-      loadData();
-    };
+  // 显示提示消息 - 先定义，因为 loadData 依赖它
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbar({ open: true, message, severity });
+  };
 
-    checkAdmin();
-  }, [navigate]);
-
-  // 加载数据
-  const loadData = () => {
+  // 加载数据 - 使用 useCallback 包装以避免依赖项警告
+  // 先定义 loadData 函数，再在 useEffect 中使用
+  const loadData = useCallback(async () => {
     setIsLoading(true);
 
-    // 加载用户数据
-    const userData = userManager.getAllUsers();
-    setUsers(userData);
+    try {
+      // 加载用户数据 - 正确处理异步调用
+      const userData = await userManager.getAllUsers();
+      console.log('加载用户数据:', userData);
+      setUsers(Array.isArray(userData) ? userData : []);
 
-    // 加载订单数据
-    const orderData = orderManager.getAllOrders();
-    setOrders(orderData);
+      // 加载订单数据
+      const orderData = await orderManager.getAllOrders();
+      setOrders(Array.isArray(orderData) ? orderData : []);
 
-    // 加载服务数据
-    const serviceData = serviceManager.getAllServices();
-    setServices(serviceData);
+      // 加载服务数据
+      const serviceData = await serviceManager.getAllServices();
+      setServices(serviceData || {});
 
-    // 加载邀请码数据
-    const inviteCodeData = inviteCodeManager.getAllInviteCodes();
-    setInviteCodes(inviteCodeData);
+      // 加载邀请码数据
+      try {
+        const inviteCodeData = await inviteCodeManager.getAllInviteCodes();
+        console.log('加载邀请码数据:', inviteCodeData);
 
-    // 加载卡密数据
-    const cardKeyData = cardKeyManager.getAllCardKeys();
-    setCardKeys(cardKeyData);
+        // 确保数据是数组
+        if (Array.isArray(inviteCodeData)) {
+          setInviteCodes(inviteCodeData);
+        } else {
+          console.warn('邀请码数据不是数组:', inviteCodeData);
+          setInviteCodes([]);
+        }
+      } catch (inviteCodeError) {
+        console.error('加载邀请码数据失败:', inviteCodeError);
+        setInviteCodes([]);
+      }
 
-    // 加载通知数据
-    const notificationData = notificationManager.getAllNotifications();
-    setNotifications(notificationData);
+      // 加载卡密数据
+      const cardKeyData = await cardKeyManager.getAllCardKeys();
+      setCardKeys(Array.isArray(cardKeyData) ? cardKeyData : []);
 
-    setIsLoading(false);
-  };
+      // 加载通知数据
+      const notificationData = await notificationManager.getAllNotifications();
+      setNotifications(Array.isArray(notificationData) ? notificationData : []);
+    } catch (error) {
+      console.error('加载数据失败:', error);
+      showSnackbar('加载数据失败', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showSnackbar]);
 
   // 处理标签切换
   const handleTabChange = (event, newValue) => {
@@ -191,28 +203,47 @@ const AdminPanel = () => {
     setSearchTerm(event.target.value);
   };
 
-  // 显示提示消息
-  const showSnackbar = (message, severity = 'info') => {
-    setSnackbar({ open: true, message, severity });
-  };
+  // 检查管理员权限并加载数据
+  useEffect(() => {
+    const checkAdmin = async () => {
+      // 检查管理员权限
+      const isUserAdmin = isAdmin();
+      console.log('管理员面板 - 检查管理员权限:', isUserAdmin);
+
+      if (!isUserAdmin) {
+        // 如果不是管理员，重定向到首页
+        console.log('非管理员用户尝试访问管理员面板，重定向到首页');
+        navigate('/');
+        return;
+      }
+
+      // 加载数据 - 正确处理异步函数
+      console.log('管理员权限验证通过，加载数据');
+      await loadData();
+    };
+
+    checkAdmin();
+  }, [navigate, isAdmin, loadData]);
+
+  // 删除重复的 showSnackbar 函数定义
 
   // 关闭提示消息
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // 过滤用户
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 过滤用户 - 添加空数组检查
+  const filteredUsers = Array.isArray(users) ? users.filter(user =>
+    (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.id || '').toLowerCase().includes(searchTerm.toLowerCase())
+  ) : [];
 
-  // 过滤订单
-  const filteredOrders = orders.filter(order =>
+  // 过滤订单 - 添加空数组检查
+  const filteredOrders = Array.isArray(orders) ? orders.filter(order =>
     (order.orderId || order.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (order.platform || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) : [];
 
   // 编辑用户
   const handleEditUser = (user) => {
@@ -242,12 +273,14 @@ const AdminPanel = () => {
   const handleDeleteUser = (userId) => {
     if (window.confirm('确定要删除此用户吗？此操作不可撤销。')) {
       try {
-        // 这里应该有一个删除用户的方法，但目前dataManager中没有
-        // 临时实现：获取所有用户，过滤掉要删除的用户，然后保存回localStorage
-        const updatedUsers = users.filter(user => user.id !== userId);
-        localStorage.setItem('users', JSON.stringify(updatedUsers));
-        showSnackbar('用户已删除', 'success');
-        loadData();
+        // 使用 userManager 删除用户
+        const result = userManager.deleteUser(userId);
+        if (result) {
+          showSnackbar('用户已删除', 'success');
+          loadData();
+        } else {
+          showSnackbar('删除用户失败', 'error');
+        }
       } catch (error) {
         console.error('删除用户失败:', error);
         showSnackbar('删除用户失败', 'error');
@@ -298,10 +331,14 @@ const AdminPanel = () => {
         maxPurchase: parseInt(currentService.maxPurchase) || 0
       };
 
-      // 保存到localStorage
-      localStorage.setItem('services', JSON.stringify(updatedServices));
-      showSnackbar('服务信息已更新', 'success');
-      loadData();
+      // 使用 serviceManager 保存服务
+      const result = serviceManager.saveServices(updatedServices);
+      if (result) {
+        showSnackbar('服务信息已更新', 'success');
+        loadData();
+      } else {
+        showSnackbar('保存服务信息失败', 'error');
+      }
     } catch (error) {
       console.error('保存服务信息失败:', error);
       showSnackbar('保存服务信息失败', 'error');
@@ -317,10 +354,14 @@ const AdminPanel = () => {
         const updatedServices = { ...services };
         delete updatedServices[key];
 
-        // 保存到localStorage
-        localStorage.setItem('services', JSON.stringify(updatedServices));
-        showSnackbar('服务已删除', 'success');
-        loadData();
+        // 使用 serviceManager 保存更新后的服务
+        const result = serviceManager.saveServices(updatedServices);
+        if (result) {
+          showSnackbar('服务已删除', 'success');
+          loadData();
+        } else {
+          showSnackbar('删除服务失败', 'error');
+        }
       } catch (error) {
         console.error('删除服务失败:', error);
         showSnackbar('删除服务失败', 'error');
@@ -438,7 +479,14 @@ const AdminPanel = () => {
         return;
       }
 
-      const result = notificationManager.createNotification(title, content, type, isGlobal);
+      // 获取当前管理员用户
+      const currentAdmin = userManager.getCurrentUser();
+      if (!currentAdmin || !currentAdmin.id) {
+        showSnackbar('管理员信息不完整，无法创建通知', 'error');
+        return;
+      }
+
+      const result = notificationManager.createNotification(title, content, type, isGlobal, currentAdmin.id);
 
       if (result) {
         showSnackbar('通知创建成功', 'success');
@@ -1061,14 +1109,22 @@ const AdminPanel = () => {
                               <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => {
+                                onClick={async () => {
                                   if (window.confirm('确定要删除此邀请码吗？此操作不可撤销。')) {
-                                    const result = inviteCodeManager.deleteInviteCode(inviteCode.code);
-                                    if (result) {
-                                      showSnackbar('邀请码已删除', 'success');
-                                      loadData();
-                                    } else {
-                                      showSnackbar('删除邀请码失败', 'error');
+                                    try {
+                                      // 正确处理异步调用
+                                      const result = await inviteCodeManager.deleteInviteCode(inviteCode.code);
+                                      console.log('删除邀请码结果:', result);
+
+                                      if (result) {
+                                        showSnackbar('邀请码已删除', 'success');
+                                        await loadData();
+                                      } else {
+                                        showSnackbar('删除邀请码失败', 'error');
+                                      }
+                                    } catch (error) {
+                                      console.error('删除邀请码时发生错误:', error);
+                                      showSnackbar('删除邀请码失败: ' + (error.message || '未知错误'), 'error');
                                     }
                                   }
                                 }}
@@ -1574,22 +1630,44 @@ const AdminPanel = () => {
         <DialogActions>
           <Button onClick={() => setEditInviteCodeDialog(false)}>取消</Button>
           <Button
-            onClick={() => {
+            onClick={async () => {
               // 验证表单
               if (!currentInviteCode.code) {
                 showSnackbar('邀请码不能为空', 'error');
                 return;
               }
 
-              // 创建邀请码
-              const result = inviteCodeManager.createInviteCode(currentInviteCode);
+              console.log('开始创建邀请码:', currentInviteCode);
 
-              if (result.success) {
-                showSnackbar('邀请码创建成功', 'success');
-                setEditInviteCodeDialog(false);
-                loadData();
-              } else {
-                showSnackbar(result.message, 'error');
+              // 确保 usageLimit 是数字
+              const inviteCodeData = {
+                ...currentInviteCode,
+                usageLimit: parseInt(currentInviteCode.usageLimit) || 10
+              };
+
+              console.log('处理后的邀请码数据:', inviteCodeData);
+
+              try {
+                // 创建邀请码 - 正确处理异步调用
+                const result = await inviteCodeManager.createInviteCode(inviteCodeData);
+                console.log('创建邀请码结果:', result);
+
+                if (result && result.success) {
+                  showSnackbar('邀请码创建成功', 'success');
+                  setEditInviteCodeDialog(false);
+
+                  // 重新加载数据
+                  console.log('重新加载数据...');
+                  await loadData();
+                  console.log('数据加载完成');
+                } else {
+                  const errorMsg = result ? (result.message || '创建邀请码失败') : '创建邀请码失败';
+                  console.error('创建邀请码失败:', errorMsg);
+                  showSnackbar(errorMsg, 'error');
+                }
+              } catch (error) {
+                console.error('创建邀请码时发生错误:', error);
+                showSnackbar('创建邀请码失败: ' + (error.message || '未知错误'), 'error');
               }
             }}
             color="primary"

@@ -18,33 +18,34 @@ import { userManager } from '../utils/dataManager';
 const NotificationWidget = () => {
   const [notifications, setNotifications] = useState([]);
   const user = userManager.getCurrentUser();
-  
+
   // 加载通知
   useEffect(() => {
     if (!user) return;
-    
+
     const loadNotifications = () => {
-      // 获取最新的5条通知
-      const allNotifications = notificationManager.getAllNotifications();
-      const recentNotifications = allNotifications.slice(0, 5);
+      // 获取用户可见的最新的5条通知
+      const userNotifications = notificationManager.getUserNotifications(user.id);
+      const recentNotifications = userNotifications.slice(0, 5);
       setNotifications(recentNotifications);
+      console.log('用户通知小部件加载的通知:', recentNotifications);
     };
-    
+
     loadNotifications();
-    
+
     // 每分钟刷新一次通知
     const interval = setInterval(loadNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
-  
+
   // 检查通知是否已读
   const isNotificationRead = (notificationId) => {
     if (!user) return true;
-    
+
     const userReadStatus = notificationManager.getUserReadStatus(user.id);
     return userReadStatus.includes(notificationId);
   };
-  
+
   // 标记通知为已读
   const handleMarkAsRead = (notificationId) => {
     if (user) {
@@ -53,11 +54,11 @@ const NotificationWidget = () => {
       setNotifications([...notifications]);
     }
   };
-  
+
   if (notifications.length === 0) {
     return null;
   }
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -81,11 +82,11 @@ const NotificationWidget = () => {
             通知
           </Typography>
         </Box>
-        
+
         <List sx={{ p: 0 }}>
           {notifications.map((notification, index) => {
             const isRead = isNotificationRead(notification.id);
-            
+
             return (
               <React.Fragment key={notification.id}>
                 {index > 0 && <Divider sx={{ opacity: 0.1 }} />}
@@ -141,7 +142,7 @@ const NotificationWidget = () => {
             );
           })}
         </List>
-        
+
         <Box sx={{ p: 2, borderTop: '1px solid rgba(60, 255, 220, 0.2)', textAlign: 'center' }}>
           <Button
             component={Link}

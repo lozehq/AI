@@ -32,8 +32,16 @@ export const printLocalStorage = () => {
 
   // 当前用户
   try {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    console.log('当前用户:', currentUser);
+    const currentUser = JSON.parse(localStorage.getItem('current_user') || 'null');
+    console.log('当前用户 (current_user):', currentUser);
+
+    // 同时检查旧的键名
+    const oldCurrentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    console.log('当前用户 (currentUser - 旧键名):', oldCurrentUser);
+
+    // 检查令牌
+    const token = localStorage.getItem('auth_token');
+    console.log('认证令牌:', token);
   } catch (error) {
     console.error('解析当前用户数据失败:', error);
   }
@@ -100,8 +108,9 @@ export const loginAsAdmin = () => {
       "createdAt": new Date().toISOString()
     };
 
-    // 直接将管理员用户存入 localStorage
-    localStorage.setItem('currentUser', JSON.stringify(adminUser));
+    // 直接将管理员用户存入 localStorage - 使用与 AuthContext 一致的键名
+    localStorage.setItem('current_user', JSON.stringify(adminUser));
+    localStorage.setItem('auth_token', `token_${Date.now()}`); // 添加令牌
 
     console.log('已直接登录为管理员用户');
     return '已直接登录为管理员用户，请刷新页面';

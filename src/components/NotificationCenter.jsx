@@ -33,60 +33,61 @@ const NotificationCenter = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedNotification, setSelectedNotification] = useState(null);
-  
+
   const user = userManager.getCurrentUser();
-  
+
   // 加载通知
   const loadNotifications = () => {
     if (!user) return;
-    
-    const allNotifications = notificationManager.getAllNotifications();
+
+    const userNotifications = notificationManager.getUserNotifications(user.id);
     const userReadStatus = notificationManager.getUserReadStatus(user.id);
-    
+
     // 过滤出未读通知
-    const unreadNotifications = allNotifications.filter(notification => {
+    const unreadNotifications = userNotifications.filter(notification => {
       return !userReadStatus.includes(notification.id);
     });
-    
-    setNotifications(allNotifications);
+
+    setNotifications(userNotifications);
     setUnreadCount(unreadNotifications.length);
+    console.log('用户通知中心加载的通知:', userNotifications);
   };
-  
+
   // 初始加载
   useEffect(() => {
     loadNotifications();
-    
+
     // 每分钟刷新一次通知
     const interval = setInterval(loadNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
-  
+
   // 打开通知面板
   const handleOpenNotifications = (event) => {
     setAnchorEl(event.currentTarget);
   };
-  
+
   // 关闭通知面板
   const handleCloseNotifications = () => {
     setAnchorEl(null);
   };
-  
+
   // 查看通知详情
   const handleViewNotification = (notification) => {
     setSelectedNotification(notification);
-    
+
     // 标记为已读
     if (user) {
       notificationManager.markAsRead(user.id, notification.id);
       loadNotifications(); // 重新加载通知以更新未读数
     }
   };
-  
+
   // 关闭通知详情
   const handleCloseNotificationDetail = () => {
     setSelectedNotification(null);
   };
-  
+
   // 标记所有通知为已读
   const handleMarkAllAsRead = () => {
     if (user) {
@@ -94,7 +95,7 @@ const NotificationCenter = () => {
       loadNotifications();
     }
   };
-  
+
   // 获取通知图标
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -108,7 +109,7 @@ const NotificationCenter = () => {
         return <InfoIcon sx={{ color: 'info.main' }} />;
     }
   };
-  
+
   // 获取通知颜色
   const getNotificationColor = (type) => {
     switch (type) {
@@ -122,18 +123,18 @@ const NotificationCenter = () => {
         return 'info.main';
     }
   };
-  
+
   // 检查通知是否已读
   const isNotificationRead = (notificationId) => {
     if (!user) return true;
-    
+
     const userReadStatus = notificationManager.getUserReadStatus(user.id);
     return userReadStatus.includes(notificationId);
   };
-  
+
   // 通知面板是否打开
   const open = Boolean(anchorEl);
-  
+
   return (
     <>
       <Tooltip title="通知中心" arrow>
@@ -166,7 +167,7 @@ const NotificationCenter = () => {
           </Badge>
         </IconButton>
       </Tooltip>
-      
+
       <Popover
         open={open}
         anchorEl={anchorEl}
@@ -196,7 +197,7 @@ const NotificationCenter = () => {
           <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
             通知
           </Typography>
-          
+
           {unreadCount > 0 && (
             <Tooltip title="标记所有为已读" arrow>
               <IconButton size="small" onClick={handleMarkAllAsRead}>
@@ -205,7 +206,7 @@ const NotificationCenter = () => {
             </Tooltip>
           )}
         </Box>
-        
+
         {notifications.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="body1" color="text.secondary">
@@ -216,7 +217,7 @@ const NotificationCenter = () => {
           <List sx={{ p: 0 }}>
             {notifications.map((notification, index) => {
               const isRead = isNotificationRead(notification.id);
-              
+
               return (
                 <React.Fragment key={notification.id}>
                   {index > 0 && <Divider sx={{ opacity: 0.1 }} />}
@@ -278,7 +279,7 @@ const NotificationCenter = () => {
             })}
           </List>
         )}
-        
+
         <Box sx={{ p: 2, borderTop: '1px solid rgba(60, 255, 220, 0.2)', textAlign: 'center' }}>
           <Button
             variant="text"
@@ -290,7 +291,7 @@ const NotificationCenter = () => {
           </Button>
         </Box>
       </Popover>
-      
+
       {/* 通知详情对话框 */}
       <Popover
         open={Boolean(selectedNotification)}
@@ -328,13 +329,13 @@ const NotificationCenter = () => {
                 {selectedNotification.title}
               </Typography>
             </Box>
-            
+
             <Divider sx={{ mb: 2, opacity: 0.2 }} />
-            
+
             <Typography variant="body1" sx={{ mb: 3, whiteSpace: 'pre-wrap' }}>
               {selectedNotification.content}
             </Typography>
-            
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Chip
                 label={selectedNotification.type}
@@ -346,12 +347,12 @@ const NotificationCenter = () => {
                   textTransform: 'capitalize'
                 }}
               />
-              
+
               <Typography variant="caption" color="text.secondary">
                 {new Date(selectedNotification.createdAt).toLocaleString()}
               </Typography>
             </Box>
-            
+
             <Box sx={{ mt: 3, textAlign: 'right' }}>
               <Button
                 variant="outlined"

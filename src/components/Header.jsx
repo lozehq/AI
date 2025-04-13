@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   AppBar,
   Toolbar,
@@ -47,9 +48,8 @@ const Header = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // 认证状态
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { currentUser, isLoggedIn, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
 
   // 认证对话框状态
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -63,51 +63,46 @@ const Header = () => {
   const notificationMenuOpen = Boolean(notificationAnchorEl);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [readStatus, setReadStatus] = useState({});
 
   // 加载通知
-  const loadNotifications = () => {
+  const loadNotifications = async () => {
     if (!isLoggedIn || !currentUser) {
       console.log('用户未登录或用户信息不存在，无法加载通知');
       return;
     }
 
-    const allNotifications = notificationManager.getAllNotifications();
-    console.log('从 notificationManager 获取的通知：', allNotifications);
+    try {
+      const userNotifications = await notificationManager.getUserNotifications(currentUser.id);
+      console.log('从 notificationManager 获取的用户通知：', userNotifications);
 
-    const userReadStatus = notificationManager.getUserReadStatus(currentUser.id);
-    console.log('用户已读通知状态：', userReadStatus);
+      const userReadStatus = await notificationManager.getUserReadStatus(currentUser.id);
+      console.log('用户已读通知状态：', userReadStatus);
 
-    // 过滤出未读通知
-    const unreadNotifications = allNotifications.filter(notification => {
-      return !userReadStatus.includes(notification.id);
-    });
-    console.log('未读通知数量：', unreadNotifications.length);
+      // 过滤出未读通知
+      const unreadNotifications = userNotifications.filter(notification => {
+        return !userReadStatus.includes(notification.id);
+      });
+      console.log('未读通知数量：', unreadNotifications.length);
 
-    setNotifications(allNotifications);
-    setUnreadCount(unreadNotifications.length);
+      setNotifications(userNotifications);
+      setUnreadCount(unreadNotifications.length);
+    } catch (error) {
+      console.error('加载通知失败:', error);
+      setNotifications([]);
+      setUnreadCount(0);
+    }
   };
 
-  // 初始化时检查用户登录状态
-  useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setCurrentUser(user);
-        setIsLoggedIn(true);
-
-        // 检查是否是管理员
-        setIsAdmin(!!user.isAdmin);
-      } catch (err) {
-        console.error('Failed to parse user data:', err);
-        localStorage.removeItem('currentUser');
-      }
-    }
-  }, []);
+  // 不再需要初始化用户登录状态，因为 AuthContext 已经处理了
 
   // 当用户登录状态变化时加载通知
   useEffect(() => {
-    if (isLoggedIn && currentUser) {
+    // 打印当前用户状态，用于调试
+    console.log('当前用户状态:', { isLoggedIn: isLoggedIn(), currentUser });
+
+    if (isLoggedIn() && currentUser) {
+      console.log('用户已登录，加载通知');
       loadNotifications();
 
       // 每分钟刷新一次通知
@@ -116,30 +111,48 @@ const Header = () => {
     }
   }, [isLoggedIn, currentUser]);
 
+  // 当通知列表变化时，加载每个通知的已读状态
+  useEffect(() => {
+    const loadReadStatus = async () => {
+      if (!isLoggedIn || !currentUser || notifications.length === 0) return;
+
+      const newReadStatus = {};
+      try {
+        const userReadStatus = await notificationManager.getUserReadStatus(currentUser.id);
+
+        // 为每个通知设置已读状态
+        notifications.forEach(notification => {
+          newReadStatus[notification.id] = userReadStatus.includes(notification.id);
+        });
+
+        setReadStatus(newReadStatus);
+      } catch (error) {
+        console.error('加载通知已读状态失败:', error);
+      }
+    };
+
+    loadReadStatus();
+  }, [notifications, isLoggedIn, currentUser]);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  // 打开登录对话框
+  // 打开认证对话框
   const handleOpenAuthDialog = () => {
     setAuthDialogOpen(true);
   };
 
-  // 关闭登录对话框
+  // 关闭认证对话框
   const handleCloseAuthDialog = () => {
     setAuthDialogOpen(false);
   };
 
   // 登录成功回调
   const handleLoginSuccess = (user) => {
-    setCurrentUser(user);
-    setIsLoggedIn(true);
-    setIsAdmin(!!user.isAdmin);
-    setAuthDialogOpen(false); // 关闭登录对话框
-
-    // 打印调试信息
     console.log('登录成功，用户信息：', user);
-    console.log('管理员状态：', !!user.isAdmin);
+    // 关闭对话框
+    setAuthDialogOpen(false);
   };
 
   // 打开用户菜单
@@ -163,40 +176,106 @@ const Header = () => {
   };
 
   // 标记所有通知为已读
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
     if (currentUser) {
-      notificationManager.markAllAsRead(currentUser.id);
-      loadNotifications();
+      try {
+        // 使用 markAllAsRead 方法
+        await notificationManager.markAllAsRead(currentUser.id);
+        await loadNotifications();
+      } catch (error) {
+        console.error('标记所有通知已读失败:', error);
+      }
     }
   };
 
   // 标记单个通知为已读
-  const handleMarkAsRead = (notificationId) => {
+  const handleMarkAsRead = async (notificationId) => {
     console.log('标记通知为已读：', notificationId);
     if (currentUser) {
-      const result = notificationManager.markAsRead(currentUser.id, notificationId);
-      console.log('标记通知已读结果：', result);
-      loadNotifications();
+      try {
+        const result = await notificationManager.markAsRead(currentUser.id, notificationId);
+        console.log('标记通知已读结果：', result);
+        await loadNotifications();
+      } catch (error) {
+        console.error('标记通知已读失败:', error);
+      }
     } else {
       console.log('用户未登录，无法标记通知为已读');
     }
   };
 
   // 检查通知是否已读
-  const isNotificationRead = (notificationId) => {
+  const isNotificationRead = async (notificationId) => {
     if (!currentUser) return true;
 
-    const userReadStatus = notificationManager.getUserReadStatus(currentUser.id);
-    return userReadStatus.includes(notificationId);
+    try {
+      const userReadStatus = await notificationManager.getUserReadStatus(currentUser.id);
+      return userReadStatus.includes(notificationId);
+    } catch (error) {
+      console.error('获取用户已读状态失败:', error);
+      return false;
+    }
   };
 
   // 注销
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    setIsAdmin(false);
-    localStorage.removeItem('currentUser');
-    handleCloseUserMenu();
+  const handleLogout = async () => {
+    try {
+      console.log('开始注销操作');
+
+      // 先手动清除所有本地存储，确保即使 API 调用失败也能正常注销
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('current_user');
+
+      // 清除其他可能影响登录状态的存储
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('current_user');
+
+      // 重置离线模式状态
+      window.isOfflineMode = false;
+
+      // 然后调用注销 API
+      try {
+        const result = await logout();
+        console.log('注销 API 调用结果:', result);
+      } catch (logoutError) {
+        console.warn('注销 API 调用失败，但本地存储已清除:', logoutError);
+      }
+
+      handleCloseUserMenu();
+      navigate('/');
+
+      // 打印当前本地存储状态
+      console.log('注销后的本地存储:', {
+        auth_token: localStorage.getItem('auth_token'),
+        current_user: localStorage.getItem('current_user')
+      });
+
+      // 强制清除所有缓存并刷新页面
+      // 使用硬性刷新，忽略缓存
+      window.location.href = window.location.origin + '?t=' + new Date().getTime();
+    } catch (error) {
+      console.error('注销失败:', error);
+
+      // 即使出错，也尝试清除本地存储并刷新页面
+      try {
+        // 清除所有存储
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // 重置离线模式状态
+        window.isOfflineMode = false;
+
+        handleCloseUserMenu();
+        navigate('/');
+
+        // 强制刷新
+        window.location.href = window.location.origin + '?t=' + new Date().getTime();
+      } catch (clearError) {
+        console.error('清除本地存储失败:', clearError);
+        // 最后的尝试，直接刷新
+        window.location.reload(true);
+      }
+    }
   };
 
   // 未读通知数量已由loadNotifications函数设置
@@ -245,7 +324,7 @@ const Header = () => {
           社区
         </Typography>
 
-        {isLoggedIn && (
+        {(typeof isLoggedIn === 'function' ? isLoggedIn() : isLoggedIn) && (
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Avatar
               sx={{
@@ -305,7 +384,7 @@ const Header = () => {
           </ListItem>
         ))}
 
-        {isLoggedIn ? (
+        {(typeof isLoggedIn === 'function' ? isLoggedIn() : isLoggedIn) ? (
           <>
             <ListItem
               component={RouterLink}
@@ -338,7 +417,7 @@ const Header = () => {
               />
             </ListItem>
 
-            {isAdmin && (
+            {(typeof isAdmin === 'function' ? isAdmin() : isAdmin) && (
               <ListItem
                 component={RouterLink}
                 to="/admin"
@@ -483,7 +562,20 @@ const Header = () => {
               <>
                 <Box sx={{ flexGrow: 1 }} />
 
-                {isLoggedIn && (
+                {!(typeof isLoggedIn === 'function' ? isLoggedIn() : isLoggedIn) && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    startIcon={<LoginIcon />}
+                    onClick={handleOpenAuthDialog}
+                    sx={{ mr: 1 }}
+                  >
+                    登录
+                  </Button>
+                )}
+
+                {(typeof isLoggedIn === 'function' ? isLoggedIn() : isLoggedIn) && (
                   <Box sx={{ mr: 1 }}>
                     <Tooltip title="通知">
                       <IconButton
@@ -577,7 +669,7 @@ const Header = () => {
                   ))}
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  {isLoggedIn && (
+                  {(typeof isLoggedIn === 'function' ? isLoggedIn() : isLoggedIn) && (
                     <>
                       <Tooltip title="通知">
                         <IconButton
@@ -648,7 +740,7 @@ const Header = () => {
                     </>
                   )}
 
-                  {isLoggedIn ? (
+                  {(typeof isLoggedIn === 'function' ? isLoggedIn() : isLoggedIn) ? (
                     <>
 
                       <Tooltip title="账户设置">
@@ -722,23 +814,47 @@ const Header = () => {
                           账户设置
                         </MenuItem>
 
-                        {/* 管理员面板入口 - 强制显示以便于调试 */}
-                        <MenuItem component={RouterLink} to="/admin">
-                          <AdminPanelSettingsIcon sx={{ mr: 1, fontSize: 20, color: 'primary.main' }} />
-                          <Typography color="primary.main">管理员面板 {isAdmin ? '(管理员)' : '(非管理员)'}</Typography>
-                        </MenuItem>
-
-                        {/* 显示当前用户信息以便于调试 */}
-                        <MenuItem>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                            isAdmin: {isAdmin ? 'true' : 'false'}<br/>
-                            user.isAdmin: {currentUser?.isAdmin ? 'true' : 'false'}
-                          </Typography>
-                        </MenuItem>
+                        {/* 管理员面板入口 - 只对管理员显示 */}
+                        {(typeof isAdmin === 'function' ? isAdmin() : isAdmin) && (
+                          <MenuItem component={RouterLink} to="/admin">
+                            <AdminPanelSettingsIcon sx={{ mr: 1, fontSize: 20, color: 'primary.main' }} />
+                            <Typography color="primary.main">管理员面板</Typography>
+                          </MenuItem>
+                        )}
 
                         <Divider sx={{ borderColor: 'rgba(60, 255, 220, 0.1)', my: 1 }} />
 
-                        <MenuItem onClick={handleLogout}>
+                        <MenuItem onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+
+                          // 直接清除所有存储并刷新
+                          console.log('强制清除所有存储并退出');
+
+                          // 清除所有本地存储
+                          localStorage.clear();
+                          sessionStorage.clear();
+
+                          // 重置离线模式状态
+                          window.isOfflineMode = false;
+
+                          // 尝试清除 IndexedDB 中的会话数据
+                          try {
+                            const request = indexedDB.deleteDatabase('AICommunityDB');
+                            request.onsuccess = () => console.log('IndexedDB 数据库已删除');
+                            request.onerror = () => console.error('IndexedDB 数据库删除失败');
+                          } catch (dbError) {
+                            console.error('删除 IndexedDB 数据库失败:', dbError);
+                          }
+
+                          // 关闭菜单
+                          handleCloseUserMenu();
+
+                          // 强制刷新页面，使用硬性刷新忽略缓存
+                          setTimeout(() => {
+                            window.location.href = window.location.origin + '?logout=true&t=' + new Date().getTime();
+                          }, 100);
+                        }}>
                           <LogoutIcon sx={{ mr: 1, fontSize: 20, color: 'error.main' }} />
                           <Typography color="error.main">退出登录</Typography>
                         </MenuItem>
@@ -802,7 +918,7 @@ const Header = () => {
         {notifications.length > 0 ? (
           <List sx={{ py: 0 }}>
             {notifications.map((notification) => {
-              const isRead = isNotificationRead(notification.id);
+              const isRead = readStatus[notification.id] || false;
               return (
                 <ListItem
                   key={notification.id}

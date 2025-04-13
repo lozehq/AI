@@ -3,6 +3,9 @@
  * 用于管理普通邀请码和管理员邀请码
  */
 
+// 导入文件存储服务
+import { fileStorage } from './fileStorage';
+
 // 默认邀请码数据
 const defaultInviteCodes = [
   {
@@ -23,10 +26,11 @@ const defaultInviteCodes = [
   }
 ];
 
-// 初始化 localStorage 中的邀请码数据
-const initializeInviteCodes = () => {
-  if (!localStorage.getItem('inviteCodes')) {
-    localStorage.setItem('inviteCodes', JSON.stringify(defaultInviteCodes));
+// 初始化文件存储中的邀请码数据
+const initializeInviteCodes = async () => {
+  const inviteCodes = await fileStorage.getData('inviteCodes');
+  if (!inviteCodes) {
+    await fileStorage.saveData('inviteCodes', defaultInviteCodes);
   }
 };
 
@@ -38,9 +42,9 @@ initializeInviteCodes();
  */
 export const inviteCodeManager = {
   // 获取所有邀请码
-  getAllInviteCodes: () => {
+  getAllInviteCodes: async () => {
     try {
-      return JSON.parse(localStorage.getItem('inviteCodes') || '[]');
+      return await fileStorage.getData('inviteCodes') || [];
     } catch (error) {
       console.error('获取邀请码失败:', error);
       return [];
@@ -48,11 +52,11 @@ export const inviteCodeManager = {
   },
 
   // 验证邀请码
-  validateInviteCode: (code) => {
+  validateInviteCode: async (code) => {
     try {
       if (!code) return { valid: false, message: '邀请码不能为空', isAdmin: false };
 
-      const inviteCodes = JSON.parse(localStorage.getItem('inviteCodes') || '[]');
+      const inviteCodes = await fileStorage.getData('inviteCodes') || [];
       const inviteCode = inviteCodes.find(ic => ic.code === code);
 
       if (!inviteCode) {
@@ -71,10 +75,10 @@ export const inviteCodeManager = {
         return { valid: false, message: '邀请码已过期', isAdmin: false };
       }
 
-      return { 
-        valid: true, 
+      return {
+        valid: true,
         message: '邀请码有效' + (inviteCode.isAdmin ? ' (管理员)' : ''),
-        isAdmin: inviteCode.isAdmin 
+        isAdmin: inviteCode.isAdmin
       };
     } catch (error) {
       console.error('验证邀请码失败:', error);
@@ -83,31 +87,47 @@ export const inviteCodeManager = {
   },
 
   // 使用邀请码（增加使用次数）
-  useInviteCode: (code) => {
+  useInviteCode: async (code) => {
     try {
-      if (!code) return false;
+      if (!code) return { success: false, message: '邀请码不能为空' };
 
-      const inviteCodes = JSON.parse(localStorage.getItem('inviteCodes') || '[]');
+      const inviteCodes = await fileStorage.getData('inviteCodes') || [];
       const index = inviteCodes.findIndex(ic => ic.code === code);
 
-      if (index === -1) return false;
+      if (index === -1) return { success: false, message: '无效的邀请码' };
+
+      // 检查使用次数
+      if (inviteCodes[index].usedCount >= inviteCodes[index].usageLimit) {
+        return { success: false, message: '邀请码已达到使用上限' };
+      }
+
+      // 检查过期时间
+      const now = new Date();
+      const expiresAt = new Date(inviteCodes[index].expiresAt);
+      if (now > expiresAt) {
+        return { success: false, message: '邀请码已过期' };
+      }
 
       // 增加使用次数
       inviteCodes[index].usedCount += 1;
-      localStorage.setItem('inviteCodes', JSON.stringify(inviteCodes));
+      await fileStorage.saveData('inviteCodes', inviteCodes);
 
-      return true;
+      return {
+        success: true,
+        message: '邀请码使用成功',
+        isAdmin: inviteCodes[index].isAdmin
+      };
     } catch (error) {
       console.error('使用邀请码失败:', error);
-      return false;
+      return { success: false, message: '使用邀请码时出错: ' + error.message };
     }
   },
 
   // 创建新邀请码
-  createInviteCode: (codeData) => {
+  createInviteCode: async (codeData) => {
     try {
-      const inviteCodes = JSON.parse(localStorage.getItem('inviteCodes') || '[]');
-      
+      const inviteCodes = await fileStorage.getData('inviteCodes') || [];
+
       // 检查邀请码是否已存在
       if (inviteCodes.some(ic => ic.code === codeData.code)) {
         return { success: false, message: '邀请码已存在' };
@@ -124,7 +144,7 @@ export const inviteCodeManager = {
       };
 
       inviteCodes.push(newInviteCode);
-      localStorage.setItem('inviteCodes', JSON.stringify(inviteCodes));
+      await fileStorage.saveData('inviteCodes', inviteCodes);
 
       return { success: true, message: '邀请码创建成功', inviteCode: newInviteCode };
     } catch (error) {
@@ -134,18 +154,18 @@ export const inviteCodeManager = {
   },
 
   // 删除邀请码
-  deleteInviteCode: (code) => {
+  deleteInviteCode: async (code) => {
     try {
       if (!code) return false;
 
-      const inviteCodes = JSON.parse(localStorage.getItem('inviteCodes') || '[]');
+      const inviteCodes = await fileStorage.getData('inviteCodes') || [];
       const filteredCodes = inviteCodes.filter(ic => ic.code !== code);
 
       if (filteredCodes.length === inviteCodes.length) {
         return false; // 没有找到要删除的邀请码
       }
 
-      localStorage.setItem('inviteCodes', JSON.stringify(filteredCodes));
+      await fileStorage.saveData('inviteCodes', filteredCodes);
       return true;
     } catch (error) {
       console.error('删除邀请码失败:', error);
@@ -154,9 +174,9 @@ export const inviteCodeManager = {
   },
 
   // 重置所有邀请码
-  resetInviteCodes: () => {
+  resetInviteCodes: async () => {
     try {
-      localStorage.setItem('inviteCodes', JSON.stringify(defaultInviteCodes));
+      await fileStorage.saveData('inviteCodes', defaultInviteCodes);
       return true;
     } catch (error) {
       console.error('重置邀请码失败:', error);

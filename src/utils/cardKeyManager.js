@@ -2,6 +2,30 @@
  * 卡密管理工具 - 管理卡密的生成、验证和使用
  */
 
+// 导入文件存储服务
+import { fileStorage } from './fileStorage';
+import validator from './validator';
+
+// 默认卡密数据
+const defaultCardKeys = [];
+
+// 初始化文件存储中的卡密数据
+const initializeCardKeys = async () => {
+  try {
+    const cardKeys = await fileStorage.getData('cardKeys');
+    if (!cardKeys) {
+      console.log('初始化卡密数据...');
+      await fileStorage.saveData('cardKeys', defaultCardKeys);
+      console.log('卡密数据初始化成功');
+    }
+  } catch (error) {
+    console.error('初始化卡密数据失败:', error);
+  }
+};
+
+// 模块加载时初始化
+initializeCardKeys();
+
 // 生成随机卡密
 const generateRandomKey = (length = 16) => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -20,9 +44,9 @@ export const formatCardKey = (key) => {
 
 export const cardKeyManager = {
   // 获取所有卡密
-  getAllCardKeys: () => {
+  getAllCardKeys: async () => {
     try {
-      return JSON.parse(localStorage.getItem('cardKeys') || '[]');
+      return await fileStorage.getData('cardKeys') || [];
     } catch (error) {
       console.error('获取卡密列表失败:', error);
       return [];
@@ -30,9 +54,9 @@ export const cardKeyManager = {
   },
 
   // 获取卡密详情
-  getCardKeyByCode: (code) => {
+  getCardKeyByCode: async (code) => {
     try {
-      const cardKeys = JSON.parse(localStorage.getItem('cardKeys') || '[]');
+      const cardKeys = await fileStorage.getData('cardKeys') || [];
       return cardKeys.find(key => key.code === code) || null;
     } catch (error) {
       console.error('获取卡密详情失败:', error);
@@ -41,13 +65,22 @@ export const cardKeyManager = {
   },
 
   // 创建新卡密
-  createCardKey: (amount, count = 1, expiresInDays = 30) => {
+  createCardKey: async (amount, count = 1, expiresInDays = 30) => {
     try {
-      if (!amount || amount <= 0) {
-        return { success: false, message: '金额必须大于0' };
+      // 验证参数
+      if (!amount || isNaN(amount) || amount <= 0) {
+        return { success: false, errors: { amount: '金额必须大于0' } };
       }
 
-      const cardKeys = JSON.parse(localStorage.getItem('cardKeys') || '[]');
+      if (!count || isNaN(count) || count <= 0 || count > 100) {
+        return { success: false, errors: { count: '生成数量必须在1-100之间' } };
+      }
+
+      if (!expiresInDays || isNaN(expiresInDays) || expiresInDays <= 0) {
+        return { success: false, errors: { expiresInDays: '过期天数必须大于0' } };
+      }
+
+      const cardKeys = await fileStorage.getData('cardKeys') || [];
       const newCardKeys = [];
 
       // 设置过期时间
@@ -77,11 +110,11 @@ export const cardKeyManager = {
         newCardKeys.push(newCardKey);
       }
 
-      localStorage.setItem('cardKeys', JSON.stringify(cardKeys));
-      return { 
-        success: true, 
-        message: `成功生成${count}张卡密`, 
-        cardKeys: newCardKeys 
+      await fileStorage.saveData('cardKeys', cardKeys);
+      return {
+        success: true,
+        message: `成功生成${count}张卡密`,
+        cardKeys: newCardKeys
       };
     } catch (error) {
       console.error('生成卡密失败:', error);
@@ -90,14 +123,27 @@ export const cardKeyManager = {
   },
 
   // 验证卡密
-  validateCardKey: (code) => {
+  validateCardKey: async (code) => {
     try {
-      if (!code) return { valid: false, message: '卡密不能为空' };
+      // 验证卡密格式
+      if (!code) {
+        return { valid: false, message: '卡密不能为空' };
+      }
 
       // 移除可能的格式化字符（如连字符）
       code = code.replace(/-/g, '');
 
-      const cardKeys = JSON.parse(localStorage.getItem('cardKeys') || '[]');
+      // 验证卡密长度
+      if (code.length !== 16) {
+        return { valid: false, message: '卡密必须为16位' };
+      }
+
+      // 验证卡密格式（只允许大写字母和数字）
+      if (!/^[A-Z0-9]+$/.test(code)) {
+        return { valid: false, message: '卡密格式不正确，只允许大写字母和数字' };
+      }
+
+      const cardKeys = await fileStorage.getData('cardKeys') || [];
       const cardKey = cardKeys.find(key => key.code === code);
 
       if (!cardKey) {
@@ -116,10 +162,10 @@ export const cardKeyManager = {
         return { valid: false, message: '卡密已过期' };
       }
 
-      return { 
-        valid: true, 
-        message: '卡密有效', 
-        amount: cardKey.amount 
+      return {
+        valid: true,
+        message: '卡密有效',
+        amount: cardKey.amount
       };
     } catch (error) {
       console.error('验证卡密失败:', error);
@@ -128,20 +174,27 @@ export const cardKeyManager = {
   },
 
   // 使用卡密
-  useCardKey: (code, userId) => {
+  useCardKey: async (code, userId) => {
     try {
-      if (!code || !userId) return { success: false, message: '参数不完整' };
+      // 验证参数
+      if (!code) {
+        return { success: false, errors: { code: '卡密不能为空' } };
+      }
+
+      if (!userId) {
+        return { success: false, errors: { userId: '用户ID不能为空' } };
+      }
 
       // 移除可能的格式化字符（如连字符）
       code = code.replace(/-/g, '');
 
       // 先验证卡密
-      const validationResult = cardKeyManager.validateCardKey(code);
+      const validationResult = await cardKeyManager.validateCardKey(code);
       if (!validationResult.valid) {
         return { success: false, message: validationResult.message };
       }
 
-      const cardKeys = JSON.parse(localStorage.getItem('cardKeys') || '[]');
+      const cardKeys = await fileStorage.getData('cardKeys') || [];
       const cardKeyIndex = cardKeys.findIndex(key => key.code === code);
 
       if (cardKeyIndex === -1) {
@@ -156,12 +209,13 @@ export const cardKeyManager = {
         usedBy: userId
       };
 
-      localStorage.setItem('cardKeys', JSON.stringify(cardKeys));
+      await fileStorage.saveData('cardKeys', cardKeys);
 
-      return { 
-        success: true, 
-        message: '卡密使用成功', 
-        amount: cardKeys[cardKeyIndex].amount 
+      return {
+        success: true,
+        message: '卡密使用成功',
+        amount: cardKeys[cardKeyIndex].amount,
+        cardKey: cardKeys[cardKeyIndex]
       };
     } catch (error) {
       console.error('使用卡密失败:', error);
@@ -170,18 +224,18 @@ export const cardKeyManager = {
   },
 
   // 删除卡密
-  deleteCardKey: (id) => {
+  deleteCardKey: async (id) => {
     try {
       if (!id) return false;
 
-      const cardKeys = JSON.parse(localStorage.getItem('cardKeys') || '[]');
+      const cardKeys = await fileStorage.getData('cardKeys') || [];
       const updatedCardKeys = cardKeys.filter(key => key.id !== id);
 
       if (updatedCardKeys.length === cardKeys.length) {
         return false; // 没有找到要删除的卡密
       }
 
-      localStorage.setItem('cardKeys', JSON.stringify(updatedCardKeys));
+      await fileStorage.saveData('cardKeys', updatedCardKeys);
       return true;
     } catch (error) {
       console.error('删除卡密失败:', error);

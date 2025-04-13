@@ -1,0 +1,22 @@
+[
+  {
+    "id": "admin_1",
+    "name": "admin",
+    "email": "admin@example.com",
+    "phone": "13800000000",
+    "password": "admin123",
+    "balance": 1000,
+    "isAdmin": true,
+    "createdAt": "2025-04-11T03:42:07.964Z"
+  },
+  {
+    "id": "user_1744569218063",
+    "createdAt": "2025-04-13T18:33:38.063Z",
+    "balance": 0,
+    "isAdmin": true,
+    "name": "lozehqlozehq@163.com",
+    "email": "lozehqlozehq@163.com",
+    "phone": "18873951416",
+    "password": "lozehqlozehq@163.com"
+  }
+]
