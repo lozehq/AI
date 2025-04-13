@@ -37,12 +37,17 @@ const NotificationsPage = () => {
   const user = userManager.getCurrentUser();
 
   // 加载通知
-  const loadNotifications = () => {
+  const loadNotifications = async () => {
     if (!user) return;
 
-    const userNotifications = notificationManager.getUserNotifications(user.id);
-    setNotifications(userNotifications);
-    console.log('通知页面加载的通知:', userNotifications);
+    try {
+      const userNotifications = await notificationManager.getUserNotifications(user.id);
+      setNotifications(userNotifications || []);
+      console.log('通知页面加载的通知:', userNotifications);
+    } catch (error) {
+      console.error('加载通知失败:', error);
+      setNotifications([]);
+    }
   };
 
   // 初始加载
@@ -51,14 +56,18 @@ const NotificationsPage = () => {
   }, []);
 
   // 查看通知详情
-  const handleViewNotification = (notification) => {
+  const handleViewNotification = async (notification) => {
     setSelectedNotification(notification);
     setDialogOpen(true);
 
     // 标记为已读
     if (user) {
-      notificationManager.markAsRead(user.id, notification.id);
-      loadNotifications(); // 重新加载通知以更新未读状态
+      try {
+        await notificationManager.markAsRead(user.id, notification.id);
+        await loadNotifications(); // 重新加载通知以更新未读状态
+      } catch (error) {
+        console.error('标记通知为已读失败:', error);
+      }
     }
   };
 
@@ -68,10 +77,14 @@ const NotificationsPage = () => {
   };
 
   // 标记所有通知为已读
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
     if (user) {
-      notificationManager.markAllAsRead(user.id);
-      loadNotifications();
+      try {
+        await notificationManager.markAllAsRead(user.id);
+        await loadNotifications();
+      } catch (error) {
+        console.error('标记所有通知为已读失败:', error);
+      }
     }
   };
 

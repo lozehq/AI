@@ -12,11 +12,19 @@ const defaultCardKeys = [];
 // 初始化文件存储中的卡密数据
 const initializeCardKeys = async () => {
   try {
+    console.log('开始检查卡密数据...');
     const cardKeys = await fileStorage.getData('cardKeys');
     if (!cardKeys) {
       console.log('初始化卡密数据...');
-      await fileStorage.saveData('cardKeys', defaultCardKeys);
-      console.log('卡密数据初始化成功');
+      const result = await fileStorage.saveData('cardKeys', defaultCardKeys);
+      console.log('卡密数据初始化结果:', result);
+      if (result) {
+        console.log('卡密数据初始化成功');
+      } else {
+        console.error('卡密数据初始化失败');
+      }
+    } else {
+      console.log('卡密数据已存在，无需初始化');
     }
   } catch (error) {
     console.error('初始化卡密数据失败:', error);
@@ -24,7 +32,11 @@ const initializeCardKeys = async () => {
 };
 
 // 模块加载时初始化
-initializeCardKeys();
+// 使用延迟执行，确保其他模块已加载
+ setTimeout(() => {
+  console.log('执行卡密数据初始化...');
+  initializeCardKeys();
+}, 1000);
 
 // 生成随机卡密
 const generateRandomKey = (length = 16) => {

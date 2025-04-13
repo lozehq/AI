@@ -2,7 +2,6 @@
 // 使用后端 API 存储数据到项目目录中
 
 import apiService from '../services/apiService';
-import { fileSystemService } from '../services/fileSystemService';
 
 // 内存缓存，减少 API 调用
 const cache = new Map();
@@ -12,44 +11,12 @@ const initCache = async () => {
   try {
     // 获取所有数据键
     const keys = await apiService.getAllKeys();
-    console.log('初始化缓存，获取到数据键:', keys);
 
-    // 逐个加载数据
+    // 预加载所有数据到缓存
     for (const key of keys) {
-      try {
-        // 先尝试从文件系统加载
-        let data = null;
-        try {
-          data = await fileSystemService.readFile(key);
-          if (data !== null) {
-            console.log(`从文件系统加载数据 ${key} 成功`);
-          }
-        } catch (fileError) {
-          console.warn(`从文件系统加载数据 ${key} 失败:`, fileError);
-        }
-
-        // 如果文件系统加载失败，尝试从 API 加载
-        if (data === null) {
-          data = await apiService.getData(key);
-          if (data !== null) {
-            console.log(`从 API 加载数据 ${key} 成功`);
-
-            // 保存到文件系统
-            try {
-              await fileSystemService.writeFile(key, data);
-              console.log(`数据 ${key} 保存到文件系统成功`);
-            } catch (saveError) {
-              console.error(`数据 ${key} 保存到文件系统失败:`, saveError);
-            }
-          }
-        }
-
-        // 如果数据加载成功，保存到缓存
-        if (data !== null) {
-          cache.set(key, data);
-        }
-      } catch (error) {
-        console.error(`初始化缓存时加载数据 ${key} 失败:`, error);
+      const data = await apiService.getData(key);
+      if (data !== null) {
+        cache.set(key, data);
       }
     }
 
@@ -69,35 +36,12 @@ const getData = async (key) => {
       return cache.get(key);
     }
 
-    // 先尝试从文件系统获取数据
-    try {
-      const fileData = await fileSystemService.readFile(key);
-      if (fileData !== null) {
-        console.log(`从文件系统获取数据 ${key} 成功`);
-
-        // 更新缓存
-        cache.set(key, fileData);
-
-        return fileData;
-      }
-    } catch (fileError) {
-      console.warn(`从文件系统获取数据 ${key} 失败:`, fileError);
-    }
-
-    // 如果文件系统获取失败，尝试从 API 获取数据
+    // 从 API 获取数据
     const data = await apiService.getData(key);
 
     // 更新缓存
     if (data !== null) {
       cache.set(key, data);
-
-      // 保存到文件系统
-      try {
-        await fileSystemService.writeFile(key, data);
-        console.log(`数据 ${key} 保存到文件系统成功`);
-      } catch (saveError) {
-        console.error(`数据 ${key} 保存到文件系统失败:`, saveError);
-      }
     }
 
     return data;
@@ -112,18 +56,6 @@ const saveData = async (key, data) => {
   try {
     // 更新缓存
     cache.set(key, data);
-
-    // 先保存到文件系统
-    try {
-      const fileResult = await fileSystemService.writeFile(key, data);
-      console.log(`数据 ${key} 保存到文件系统结果:`, fileResult);
-
-      if (!fileResult) {
-        console.warn(`数据 ${key} 保存到文件系统失败，将尝试保存到 API`);
-      }
-    } catch (fileError) {
-      console.error(`数据 ${key} 保存到文件系统失败:`, fileError);
-    }
 
     // 保存到 API
     const success = await apiService.saveData(key, data);
@@ -140,18 +72,6 @@ const deleteData = async (key) => {
     // 从缓存中删除
     cache.delete(key);
 
-    // 先从文件系统删除
-    try {
-      const fileResult = await fileSystemService.deleteFile(key);
-      console.log(`从文件系统删除数据 ${key} 结果:`, fileResult);
-
-      if (!fileResult) {
-        console.warn(`从文件系统删除数据 ${key} 失败，将尝试从 API 删除`);
-      }
-    } catch (fileError) {
-      console.error(`从文件系统删除数据 ${key} 失败:`, fileError);
-    }
-
     // 从 API 删除
     const success = await apiService.deleteData(key);
     return success;
@@ -162,7 +82,11 @@ const deleteData = async (key) => {
 };
 
 // 初始化
-initCache();
+// 使用延迟执行，确保其他模块已加载
+setTimeout(() => {
+  console.log('开始初始化文件存储缓存...');
+  initCache();
+}, 500);
 
 // 获取所有数据键
 const getAllKeys = async () => {

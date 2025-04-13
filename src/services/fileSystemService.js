@@ -30,35 +30,50 @@ const isNodeEnvironment = typeof process !== 'undefined' && process.versions && 
 // 模拟文件系统（用于浏览器环境）
 const mockFileSystem = {
   files: {},
-  
+
+  // 初始化目录
+  initDirectory: (dirPath) => {
+    // 在浏览器环境中，我们不需要真正创建目录
+    // 只需要确保我们记录了这个目录的存在
+    console.log(`初始化模拟目录: ${dirPath}`);
+    return true;
+  },
+
   // 读取文件
   readFile: (filePath) => {
+    console.log(`模拟读取文件: ${filePath}`);
     return mockFileSystem.files[filePath] || null;
   },
-  
+
   // 写入文件
   writeFile: (filePath, data) => {
+    console.log(`模拟写入文件: ${filePath}`);
     mockFileSystem.files[filePath] = data;
     return true;
   },
-  
+
   // 删除文件
   deleteFile: (filePath) => {
+    console.log(`模拟删除文件: ${filePath}`);
     if (mockFileSystem.files[filePath]) {
       delete mockFileSystem.files[filePath];
       return true;
     }
     return false;
   },
-  
+
   // 检查文件是否存在
   existsFile: (filePath) => {
-    return !!mockFileSystem.files[filePath];
+    const exists = !!mockFileSystem.files[filePath];
+    console.log(`检查模拟文件是否存在: ${filePath}, 结果: ${exists}`);
+    return exists;
   },
-  
+
   // 获取所有文件
   getAllFiles: () => {
-    return Object.keys(mockFileSystem.files);
+    const files = Object.keys(mockFileSystem.files);
+    console.log(`获取所有模拟文件: ${files.length} 个文件`);
+    return files;
   }
 };
 
@@ -74,32 +89,32 @@ export const fileSystemService = {
   readFile: async (key) => {
     try {
       console.log(`开始读取文件 ${key}`);
-      
+
       // 构建文件路径
-      const filePath = isNodeEnvironment 
-        ? path.join(DATA_DIR, `${key}.json`) 
+      const filePath = isNodeEnvironment
+        ? path.join(DATA_DIR, `${key}.json`)
         : `${DATA_DIR}/${key}.json`;
-      
+
       // 在 Node.js 环境中使用 fs 模块
       if (isNodeEnvironment && fs) {
         // 确保目录存在
         if (!fs.existsSync(DATA_DIR)) {
           fs.mkdirSync(DATA_DIR, { recursive: true });
         }
-        
+
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
           console.warn(`文件 ${filePath} 不存在`);
           return null;
         }
-        
+
         // 读取文件
         const data = fs.readFileSync(filePath, 'utf8');
         console.log(`成功读取文件 ${filePath}`);
-        
+
         // 解析 JSON 数据
         return JSON.parse(data);
-      } 
+      }
       // 在浏览器环境中使用模拟文件系统
       else {
         // 检查文件是否存在
@@ -107,11 +122,11 @@ export const fileSystemService = {
           console.warn(`文件 ${filePath} 不存在`);
           return null;
         }
-        
+
         // 读取文件
         const data = mockFileSystem.readFile(filePath);
         console.log(`成功读取文件 ${filePath}`);
-        
+
         return data;
       }
     } catch (error) {
@@ -119,7 +134,7 @@ export const fileSystemService = {
       return null;
     }
   },
-  
+
   /**
    * 写入文件
    * @param {string} key - 数据键
@@ -129,34 +144,40 @@ export const fileSystemService = {
   writeFile: async (key, data) => {
     try {
       console.log(`开始写入文件 ${key}`);
-      
+
       // 构建文件路径
-      const filePath = isNodeEnvironment 
-        ? path.join(DATA_DIR, `${key}.json`) 
+      const filePath = isNodeEnvironment
+        ? path.join(DATA_DIR, `${key}.json`)
         : `${DATA_DIR}/${key}.json`;
-      
+
       // 在 Node.js 环境中使用 fs 模块
       if (isNodeEnvironment && fs) {
         // 确保目录存在
         if (!fs.existsSync(DATA_DIR)) {
           fs.mkdirSync(DATA_DIR, { recursive: true });
         }
-        
+
         // 将数据转换为 JSON 字符串
         const jsonData = JSON.stringify(data, null, 2);
-        
+
         // 写入文件
         fs.writeFileSync(filePath, jsonData, 'utf8');
         console.log(`成功写入文件 ${filePath}`);
-        
+
         return true;
-      } 
+      }
       // 在浏览器环境中使用模拟文件系统
       else {
+        // 初始化目录
+        mockFileSystem.initDirectory(DATA_DIR);
+
+        // 将数据转换为 JSON 字符串（如果不是字符串）
+        const jsonData = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+
         // 写入文件
         mockFileSystem.writeFile(filePath, data);
         console.log(`成功写入文件 ${filePath}`);
-        
+
         return true;
       }
     } catch (error) {
@@ -164,7 +185,7 @@ export const fileSystemService = {
       return false;
     }
   },
-  
+
   /**
    * 删除文件
    * @param {string} key - 数据键
@@ -173,12 +194,12 @@ export const fileSystemService = {
   deleteFile: async (key) => {
     try {
       console.log(`开始删除文件 ${key}`);
-      
+
       // 构建文件路径
-      const filePath = isNodeEnvironment 
-        ? path.join(DATA_DIR, `${key}.json`) 
+      const filePath = isNodeEnvironment
+        ? path.join(DATA_DIR, `${key}.json`)
         : `${DATA_DIR}/${key}.json`;
-      
+
       // 在 Node.js 环境中使用 fs 模块
       if (isNodeEnvironment && fs) {
         // 检查文件是否存在
@@ -186,13 +207,13 @@ export const fileSystemService = {
           console.warn(`文件 ${filePath} 不存在`);
           return false;
         }
-        
+
         // 删除文件
         fs.unlinkSync(filePath);
         console.log(`成功删除文件 ${filePath}`);
-        
+
         return true;
-      } 
+      }
       // 在浏览器环境中使用模拟文件系统
       else {
         // 检查文件是否存在
@@ -200,11 +221,11 @@ export const fileSystemService = {
           console.warn(`文件 ${filePath} 不存在`);
           return false;
         }
-        
+
         // 删除文件
         mockFileSystem.deleteFile(filePath);
         console.log(`成功删除文件 ${filePath}`);
-        
+
         return true;
       }
     } catch (error) {
@@ -212,7 +233,7 @@ export const fileSystemService = {
       return false;
     }
   },
-  
+
   /**
    * 获取所有文件
    * @returns {Promise<string[]>} - 所有文件的键
@@ -220,7 +241,7 @@ export const fileSystemService = {
   getAllFiles: async () => {
     try {
       console.log('开始获取所有文件');
-      
+
       // 在 Node.js 环境中使用 fs 模块
       if (isNodeEnvironment && fs) {
         // 确保目录存在
@@ -228,31 +249,31 @@ export const fileSystemService = {
           fs.mkdirSync(DATA_DIR, { recursive: true });
           return [];
         }
-        
+
         // 读取目录
         const files = fs.readdirSync(DATA_DIR);
-        
+
         // 过滤出 JSON 文件并提取键
         const keys = files
           .filter(file => file.endsWith('.json'))
           .map(file => file.replace('.json', ''));
-        
+
         console.log('成功获取所有文件:', keys);
-        
+
         return keys;
-      } 
+      }
       // 在浏览器环境中使用模拟文件系统
       else {
         // 获取所有文件
         const files = mockFileSystem.getAllFiles();
-        
+
         // 过滤出指定目录的 JSON 文件并提取键
         const keys = files
           .filter(file => file.startsWith(`${DATA_DIR}/`) && file.endsWith('.json'))
           .map(file => file.replace(`${DATA_DIR}/`, '').replace('.json', ''));
-        
+
         console.log('成功获取所有文件:', keys);
-        
+
         return keys;
       }
     } catch (error) {
@@ -260,7 +281,7 @@ export const fileSystemService = {
       return [];
     }
   },
-  
+
   /**
    * 检查文件是否存在
    * @param {string} key - 数据键
@@ -269,14 +290,14 @@ export const fileSystemService = {
   existsFile: async (key) => {
     try {
       // 构建文件路径
-      const filePath = isNodeEnvironment 
-        ? path.join(DATA_DIR, `${key}.json`) 
+      const filePath = isNodeEnvironment
+        ? path.join(DATA_DIR, `${key}.json`)
         : `${DATA_DIR}/${key}.json`;
-      
+
       // 在 Node.js 环境中使用 fs 模块
       if (isNodeEnvironment && fs) {
         return fs.existsSync(filePath);
-      } 
+      }
       // 在浏览器环境中使用模拟文件系统
       else {
         return mockFileSystem.existsFile(filePath);
