@@ -1359,119 +1359,405 @@ const AdminPanel = () => {
           {tabValue === 6 && (
             <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                <Grid container size={{ xs: 12, md: 4 }}>
-                  <Card sx={{
-                    bgcolor: 'rgba(10, 25, 41, 0.7)',
-                    border: '1px solid rgba(60, 255, 220, 0.2)',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" color="primary.main" gutterBottom>
-                        用户统计
-                      </Typography>
-                      <Typography variant="h3" color="text.primary">
-                        {users.length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        总用户数
-                      </Typography>
-                      <Divider sx={{ my: 2, borderColor: 'rgba(60, 255, 220, 0.1)' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        管理员: {users.filter(user => user.isAdmin).length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        普通用户: {users.filter(user => !user.isAdmin).length}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                <Grid container size={{ xs: 12, md: 4 }}>
-                  <Card sx={{
-                    bgcolor: 'rgba(10, 25, 41, 0.7)',
-                    border: '1px solid rgba(60, 255, 220, 0.2)',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" color="primary.main" gutterBottom>
-                        订单统计
-                      </Typography>
-                      <Typography variant="h3" color="text.primary">
-                        {orders.length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        总订单数
-                      </Typography>
-                      <Divider sx={{ my: 2, borderColor: 'rgba(60, 255, 220, 0.1)' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        完成订单: {orders.filter(order => order.status === 'completed').length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        进行中订单: {orders.filter(order => order.status === 'processing' || order.status === 'in_progress').length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        待处理订单: {orders.filter(order => order.status === 'waiting' || order.status === 'pending').length}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                <Grid container size={{ xs: 12, md: 4 }}>
-                  <Card sx={{
-                    bgcolor: 'rgba(10, 25, 41, 0.7)',
-                    border: '1px solid rgba(60, 255, 220, 0.2)',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" color="primary.main" gutterBottom>
-                        服务统计
-                      </Typography>
-                      <Typography variant="h3" color="text.primary">
-                        {Object.keys(services).length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        总服务数
-                      </Typography>
-                      <Divider sx={{ my: 2, borderColor: 'rgba(60, 255, 220, 0.1)' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        平均价格: {
-                          Object.values(services).length > 0
-                            ? formatCurrency(Object.values(services).reduce((sum, service) => sum + service.price, 0) / Object.values(services).length)
-                            : formatCurrency(0)
+                {/* 用户统计卡片 */}
+                <Grid item xs={12} md={6} lg={3}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                  >
+                    <Card sx={{
+                      height: '100%',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: 3,
+                      bgcolor: 'rgba(10, 25, 41, 0.8)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(60, 255, 220, 0.3)',
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(60, 255, 220, 0.1)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-5px)',
+                        boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(60, 255, 220, 0.2)',
+                        '& .stat-icon': {
+                          transform: 'scale(1.1) rotate(10deg)',
+                          opacity: 0.8,
                         }
-                      </Typography>
-                    </CardContent>
-                  </Card>
+                      }
+                    }}>
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -20,
+                        right: -20,
+                        width: 120,
+                        height: 120,
+                        opacity: 0.2,
+                        transition: 'all 0.3s ease',
+                      }} className="stat-icon">
+                        <PersonIcon sx={{ fontSize: 120, color: 'primary.main' }} />
+                      </Box>
+                      <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
+                        <Typography variant="h6" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          mb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          background: 'linear-gradient(90deg, #3CFFDC, #3C9EFF)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}>
+                          <PersonIcon fontSize="small" sx={{ color: '#3CFFDC' }} />
+                          用户统计
+                        </Typography>
+
+                        <Typography variant="h2" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          my: 2,
+                          fontSize: '3.5rem',
+                          color: '#fff',
+                          textShadow: '0 0 10px rgba(60, 255, 220, 0.5)'
+                        }}>
+                          {users.length}
+                        </Typography>
+
+                        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', mb: 2 }}>
+                          总用户数
+                        </Typography>
+
+                        <Box sx={{
+                          mt: 2,
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(0, 0, 0, 0.2)',
+                          border: '1px solid rgba(60, 255, 220, 0.1)',
+                        }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              管理员
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#3CFFDC' }}>
+                              {users.filter(user => user.isAdmin).length}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              普通用户
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#3C9EFF' }}>
+                              {users.filter(user => !user.isAdmin).length}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 </Grid>
 
-                <Grid container size={{ xs: 12, md: 4 }}>
-                  <Card sx={{
-                    bgcolor: 'rgba(10, 25, 41, 0.7)',
-                    border: '1px solid rgba(60, 255, 220, 0.2)',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" color="primary.main" gutterBottom>
-                        邀请码统计
-                      </Typography>
-                      <Typography variant="h3" color="text.primary">
-                        {inviteCodes.length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        总邀请码数
-                      </Typography>
-                      <Divider sx={{ my: 2, borderColor: 'rgba(60, 255, 220, 0.1)' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        管理员邀请码: {inviteCodes.filter(code => code.isAdmin).length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        普通邀请码: {inviteCodes.filter(code => !code.isAdmin).length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        已使用次数: {inviteCodes.reduce((sum, code) => sum + (code.usedCount || 0), 0)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
+                {/* 订单统计卡片 */}
+                <Grid item xs={12} md={6} lg={3}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.2 }}
+                  >
+                    <Card sx={{
+                      height: '100%',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: 3,
+                      bgcolor: 'rgba(10, 25, 41, 0.8)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(60, 255, 220, 0.3)',
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(60, 255, 220, 0.1)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-5px)',
+                        boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(60, 255, 220, 0.2)',
+                        '& .stat-icon': {
+                          transform: 'scale(1.1) rotate(10deg)',
+                          opacity: 0.8,
+                        }
+                      }
+                    }}>
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -20,
+                        right: -20,
+                        width: 120,
+                        height: 120,
+                        opacity: 0.2,
+                        transition: 'all 0.3s ease',
+                      }} className="stat-icon">
+                        <ShoppingCartIcon sx={{ fontSize: 120, color: 'primary.main' }} />
+                      </Box>
+                      <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
+                        <Typography variant="h6" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          mb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          background: 'linear-gradient(90deg, #3CFFDC, #3C9EFF)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}>
+                          <ShoppingCartIcon fontSize="small" sx={{ color: '#3CFFDC' }} />
+                          订单统计
+                        </Typography>
+
+                        <Typography variant="h2" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          my: 2,
+                          fontSize: '3.5rem',
+                          color: '#fff',
+                          textShadow: '0 0 10px rgba(60, 255, 220, 0.5)'
+                        }}>
+                          {orders.length}
+                        </Typography>
+
+                        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', mb: 2 }}>
+                          总订单数
+                        </Typography>
+
+                        <Box sx={{
+                          mt: 2,
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(0, 0, 0, 0.2)',
+                          border: '1px solid rgba(60, 255, 220, 0.1)',
+                        }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              完成订单
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#3CFFDC' }}>
+                              {orders.filter(order => order.status === 'completed').length}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              进行中订单
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#3C9EFF' }}>
+                              {orders.filter(order => order.status === 'processing' || order.status === 'in_progress').length}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              待处理订单
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#FF7C3C' }}>
+                              {orders.filter(order => order.status === 'waiting' || order.status === 'pending').length}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </Grid>
+
+                {/* 服务统计卡片 */}
+                <Grid item xs={12} md={6} lg={3}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.3 }}
+                  >
+                    <Card sx={{
+                      height: '100%',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: 3,
+                      bgcolor: 'rgba(10, 25, 41, 0.8)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(60, 255, 220, 0.3)',
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(60, 255, 220, 0.1)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-5px)',
+                        boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(60, 255, 220, 0.2)',
+                        '& .stat-icon': {
+                          transform: 'scale(1.1) rotate(10deg)',
+                          opacity: 0.8,
+                        }
+                      }
+                    }}>
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -20,
+                        right: -20,
+                        width: 120,
+                        height: 120,
+                        opacity: 0.2,
+                        transition: 'all 0.3s ease',
+                      }} className="stat-icon">
+                        <SettingsIcon sx={{ fontSize: 120, color: 'primary.main' }} />
+                      </Box>
+                      <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
+                        <Typography variant="h6" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          mb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          background: 'linear-gradient(90deg, #3CFFDC, #3C9EFF)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}>
+                          <SettingsIcon fontSize="small" sx={{ color: '#3CFFDC' }} />
+                          服务统计
+                        </Typography>
+
+                        <Typography variant="h2" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          my: 2,
+                          fontSize: '3.5rem',
+                          color: '#fff',
+                          textShadow: '0 0 10px rgba(60, 255, 220, 0.5)'
+                        }}>
+                          {Object.keys(services).length}
+                        </Typography>
+
+                        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', mb: 2 }}>
+                          总服务数
+                        </Typography>
+
+                        <Box sx={{
+                          mt: 2,
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(0, 0, 0, 0.2)',
+                          border: '1px solid rgba(60, 255, 220, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                            平均价格
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 'bold', color: '#3CFFDC' }}>
+                            {
+                              Object.values(services).length > 0
+                                ? formatCurrency(Object.values(services).reduce((sum, service) => sum + service.price, 0) / Object.values(services).length)
+                                : formatCurrency(0)
+                            }
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </Grid>
+
+                {/* 邀请码统计卡片 */}
+                <Grid item xs={12} md={6} lg={3}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.4 }}
+                  >
+                    <Card sx={{
+                      height: '100%',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: 3,
+                      bgcolor: 'rgba(10, 25, 41, 0.8)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(60, 255, 220, 0.3)',
+                      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(60, 255, 220, 0.1)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-5px)',
+                        boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(60, 255, 220, 0.2)',
+                        '& .stat-icon': {
+                          transform: 'scale(1.1) rotate(10deg)',
+                          opacity: 0.8,
+                        }
+                      }
+                    }}>
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -20,
+                        right: -20,
+                        width: 120,
+                        height: 120,
+                        opacity: 0.2,
+                        transition: 'all 0.3s ease',
+                      }} className="stat-icon">
+                        <VpnKeyIcon sx={{ fontSize: 120, color: 'primary.main' }} />
+                      </Box>
+                      <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
+                        <Typography variant="h6" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          mb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          background: 'linear-gradient(90deg, #3CFFDC, #3C9EFF)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}>
+                          <VpnKeyIcon fontSize="small" sx={{ color: '#3CFFDC' }} />
+                          邀请码统计
+                        </Typography>
+
+                        <Typography variant="h2" sx={{
+                          fontFamily: 'Orbitron, sans-serif',
+                          fontWeight: 'bold',
+                          my: 2,
+                          fontSize: '3.5rem',
+                          color: '#fff',
+                          textShadow: '0 0 10px rgba(60, 255, 220, 0.5)'
+                        }}>
+                          {inviteCodes.length}
+                        </Typography>
+
+                        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', mb: 2 }}>
+                          总邀请码数
+                        </Typography>
+
+                        <Box sx={{
+                          mt: 2,
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(0, 0, 0, 0.2)',
+                          border: '1px solid rgba(60, 255, 220, 0.1)',
+                        }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              管理员邀请码
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#3CFFDC' }}>
+                              {inviteCodes.filter(code => code.isAdmin).length}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              普通邀请码
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#3C9EFF' }}>
+                              {inviteCodes.filter(code => !code.isAdmin).length}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              已使用次数
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#FF7C3C' }}>
+                              {inviteCodes.reduce((sum, code) => sum + (code.usedCount || 0), 0)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 </Grid>
               </Grid>
             </Box>

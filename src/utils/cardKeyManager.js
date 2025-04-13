@@ -33,10 +33,57 @@ const initializeCardKeys = async () => {
 
 // 模块加载时初始化
 // 使用延迟执行，确保其他模块已加载
- setTimeout(() => {
+setTimeout(() => {
   console.log('执行卡密数据初始化...');
   initializeCardKeys();
+  // 添加测试卡密，确保有可用的卡密
+  createTestCardKeys();
 }, 1000);
+
+// 创建测试卡密
+const createTestCardKeys = async () => {
+  try {
+    // 检查是否已有卡密
+    const existingCardKeys = await fileStorage.getData('cardKeys') || [];
+
+    // 如果已有卡密，不再创建测试卡密
+    if (existingCardKeys.length > 0) {
+      console.log('已存在卡密，无需创建测试卡密');
+      return;
+    }
+
+    console.log('创建测试卡密...');
+    // 创建一些测试卡密
+    const testCardKeys = [
+      {
+        id: `card_test_1`,
+        code: 'TEST1234ABCD5678',
+        amount: 100,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
+        isUsed: false,
+        usedAt: null,
+        usedBy: null
+      },
+      {
+        id: `card_test_2`,
+        code: 'ABCD5678TEST1234',
+        amount: 200,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
+        isUsed: false,
+        usedAt: null,
+        usedBy: null
+      }
+    ];
+
+    // 保存测试卡密
+    await fileStorage.saveData('cardKeys', testCardKeys);
+    console.log('测试卡密创建成功');
+  } catch (error) {
+    console.error('创建测试卡密失败:', error);
+  }
+};
 
 // 生成随机卡密
 const generateRandomKey = (length = 16) => {

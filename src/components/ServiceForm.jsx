@@ -285,18 +285,37 @@ const ServiceForm = () => {
         return;
       }
 
-      // 创建订单
-      const order = createOrder(detectedPlatform, filteredServices, videoUrl, currentUser.id);
-
-      if (!order || !order.orderId) {
-        throw new Error('订单创建失败，返回的订单数据无效');
+      // 检查用户余额是否足够
+      if (currentUser.balance < totalPrice) {
+        setError(`账户余额不足，当前余额：￥${currentUser.balance?.toFixed(2) || '0.00'}，需要：￥${totalPrice.toFixed(2)}，请先充值`);
+        return;
       }
 
-      setCreatedOrderId(order.orderId);
-      setOrderCreated(true);
+      // 创建订单
+      try {
+        const order = createOrder(detectedPlatform, filteredServices, videoUrl, currentUser.id);
 
-      // 进入下一步
-      setActiveStep((prevStep) => prevStep + 1);
+        if (!order || !order.orderId) {
+          throw new Error('订单创建失败，返回的订单数据无效');
+        }
+
+        // 更新本地用户余额
+        const updatedUser = {
+          ...currentUser,
+          balance: currentUser.balance - totalPrice
+        };
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        setCurrentUser(updatedUser);
+
+        setCreatedOrderId(order.orderId);
+        setOrderCreated(true);
+
+        // 进入下一步
+        setActiveStep((prevStep) => prevStep + 1);
+      } catch (orderError) {
+        console.error('创建订单失败:', orderError);
+        setError('创建订单失败，请重试: ' + (orderError.message || ''));
+      }
     } catch (error) {
       console.error('创建订单失败:', error);
       setError('创建订单失败，请重试: ' + (error.message || ''));

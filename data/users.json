@@ -18,5 +18,25 @@
     "email": "lozehqlozehq@163.com",
     "phone": "18873951416",
     "password": "lozehqlozehq@163.com"
+  },
+  {
+    "id": "user_1744570091044",
+    "createdAt": "2025-04-13T18:48:11.044Z",
+    "balance": 0,
+    "isAdmin": true,
+    "name": "lodwdwq2111",
+    "email": "lodwdwq2111114Q@qq.com",
+    "phone": "18873951416",
+    "password": "lodwdwq2111114Q@qq.com"
+  },
+  {
+    "id": "user_1744570184002",
+    "createdAt": "2025-04-13T18:49:44.002Z",
+    "balance": 100000,
+    "isAdmin": false,
+    "name": "lozehq",
+    "email": "1940231594@qq.com",
+    "phone": "18873951416",
+    "password": "hwb123123"
   }
 ]

@@ -3,7 +3,7 @@
     "code": "WELCOME2024",
     "isAdmin": false,
     "usageLimit": 100,
-    "usedCount": 0,
+    "usedCount": 1,
     "createdAt": "2025-04-11T03:42:07.966Z",
     "expiresAt": "2026-04-11T03:42:07.966Z"
   },
@@ -27,7 +27,7 @@
     "code": "AIGC20255",
     "isAdmin": true,
     "usageLimit": 10,
-    "usedCount": 0,
+    "usedCount": 2,
     "createdAt": "2025-04-13T17:02:59.630Z",
     "expiresAt": "2026-04-13"
   },

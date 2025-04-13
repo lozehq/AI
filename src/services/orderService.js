@@ -84,6 +84,24 @@ const createOrder = (platform, services, videoUrl, userId) => {
     // 计算总数量
     const totalQuantity = Object.values(services).reduce((sum, value) => sum + value, 0);
 
+    // 检查用户余额
+    try {
+      const userDataStr = localStorage.getItem('currentUser');
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        if (userData.balance < totalAmount) {
+          throw new Error(`账户余额不足，当前余额：￥${userData.balance?.toFixed(2) || '0.00'}，需要：￥${totalAmount.toFixed(2)}`);
+        }
+      }
+    } catch (balanceError) {
+      console.error('检查用户余额失败:', balanceError);
+      // 如果是余额不足的错误，则向上抛出
+      if (balanceError.message && balanceError.message.includes('账户余额不足')) {
+        throw balanceError;
+      }
+      // 其他错误继续执行，不阻止订单创建
+    }
+
     // 创建订单对象
     const order = {
       orderId,
@@ -128,13 +146,32 @@ const createOrder = (platform, services, videoUrl, userId) => {
         })
         .join(', ');
 
-      transactionManager.createTransaction(
-        userId,
-        -totalAmount, // 负数表示支出
-        TRANSACTION_TYPES.CONSUMPTION,
-        `购买服务: ${platform} (${serviceDesc})`,
-        orderId
-      );
+      // 创建交易记录
+      try {
+        transactionManager.createTransaction(
+          userId,
+          -totalAmount, // 负数表示支出
+          TRANSACTION_TYPES.CONSUMPTION,
+          `购买服务: ${platform} (${serviceDesc})`,
+          orderId
+        );
+      } catch (transactionError) {
+        console.error('创建交易记录失败:', transactionError);
+        // 交易记录创建失败不应该阻止订单创建
+      }
+
+      // 更新用户余额
+      try {
+        const userDataStr = localStorage.getItem('currentUser');
+        if (userDataStr) {
+          const userData = JSON.parse(userDataStr);
+          userData.balance = (userData.balance || 0) - totalAmount;
+          localStorage.setItem('currentUser', JSON.stringify(userData));
+        }
+      } catch (updateBalanceError) {
+        console.error('更新用户余额失败:', updateBalanceError);
+        // 更新余额失败不应该阻止订单创建
+      }
     }
 
     return order;
