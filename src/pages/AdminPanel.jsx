@@ -397,7 +397,7 @@ const AdminPanel = () => {
   };
 
   // 生成卡密
-  const handleCreateCardKey = () => {
+  const handleCreateCardKey = async () => {
     try {
       // 验证表单
       if (!cardKeyForm.amount || cardKeyForm.amount <= 0) {
@@ -415,40 +415,48 @@ const AdminPanel = () => {
         return;
       }
 
-      // 生成卡密
-      const result = cardKeyManager.createCardKey(
+      // 生成卡密 - 正确处理异步操作
+      console.log('开始生成卡密...');
+      const result = await cardKeyManager.createCardKey(
         cardKeyForm.amount,
         cardKeyForm.count,
         cardKeyForm.expiresInDays
       );
+      console.log('生成卡密结果:', result);
 
-      if (result.success) {
+      if (result && result.success) {
         showSnackbar(result.message, 'success');
         setNewCardKeys(result.cardKeys);
-        loadData();
+        // 重新加载数据
+        await loadData();
       } else {
-        showSnackbar(result.message, 'error');
+        const errorMsg = result ? (result.message || '生成卡密失败') : '生成卡密失败';
+        console.error('生成卡密失败:', errorMsg);
+        showSnackbar(errorMsg, 'error');
       }
     } catch (error) {
       console.error('生成卡密失败:', error);
-      showSnackbar('生成卡密失败', 'error');
+      showSnackbar('生成卡密失败: ' + (error.message || '未知错误'), 'error');
     }
   };
 
   // 删除卡密
-  const handleDeleteCardKey = (id) => {
+  const handleDeleteCardKey = async (id) => {
     if (window.confirm('确定要删除此卡密吗？此操作不可撤销。')) {
       try {
-        const result = cardKeyManager.deleteCardKey(id);
+        console.log('开始删除卡密:', id);
+        const result = await cardKeyManager.deleteCardKey(id);
+        console.log('删除卡密结果:', result);
+
         if (result) {
           showSnackbar('卡密已删除', 'success');
-          loadData();
+          await loadData();
         } else {
           showSnackbar('删除卡密失败', 'error');
         }
       } catch (error) {
         console.error('删除卡密失败:', error);
-        showSnackbar('删除卡密失败', 'error');
+        showSnackbar('删除卡密失败: ' + (error.message || '未知错误'), 'error');
       }
     }
   };
