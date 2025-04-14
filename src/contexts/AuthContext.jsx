@@ -257,6 +257,7 @@ export const AuthProvider = ({ children }) => {
   // 上下文值
   const value = {
     currentUser,
+    setCurrentUser,
     loading,
     error,
     login,

@@ -285,15 +285,29 @@ const ServiceForm = () => {
         return;
       }
 
+      // 获取最新的用户信息
+      let latestUserInfo = currentUser;
+      try {
+        const userDataStr = localStorage.getItem('currentUser');
+        if (userDataStr) {
+          const userData = JSON.parse(userDataStr);
+          if (userData && userData.id === currentUser.id) {
+            latestUserInfo = userData;
+          }
+        }
+      } catch (error) {
+        console.error('获取最新用户信息失败:', error);
+      }
+
       // 检查用户余额是否足够
-      if (currentUser.balance < totalPrice) {
-        setError(`账户余额不足，当前余额：￥${currentUser.balance?.toFixed(2) || '0.00'}，需要：￥${totalPrice.toFixed(2)}，请先充值`);
+      if (latestUserInfo.balance < totalPrice) {
+        setError(`账户余额不足，当前余额：￥${latestUserInfo.balance?.toFixed(2) || '0.00'}，需要：￥${totalPrice.toFixed(2)}，请先充值`);
         return;
       }
 
       // 创建订单
       try {
-        const order = createOrder(detectedPlatform, filteredServices, videoUrl, currentUser.id);
+        const order = createOrder(detectedPlatform, filteredServices, videoUrl, latestUserInfo.id);
 
         if (!order || !order.orderId) {
           throw new Error('订单创建失败，返回的订单数据无效');
@@ -301,11 +315,15 @@ const ServiceForm = () => {
 
         // 更新本地用户余额
         const updatedUser = {
-          ...currentUser,
-          balance: currentUser.balance - totalPrice
+          ...latestUserInfo,
+          balance: latestUserInfo.balance - totalPrice
         };
         localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        setCurrentUser(updatedUser);
+
+        // 如果组件中有 setCurrentUser 函数，则更新组件状态
+        if (typeof setCurrentUser === 'function') {
+          setCurrentUser(updatedUser);
+        }
 
         setCreatedOrderId(order.orderId);
         setOrderCreated(true);
@@ -586,7 +604,7 @@ const ServiceForm = () => {
                 const color = colors[key] || colors.views;
 
                 return (
-                  <Grid key={key} size={{ xs: 12, sm: 6, md: 4 }} sx={{ mb: 3 }}>
+                  <Grid item key={key} xs={12} sm={6} md={4} sx={{ mb: 3 }}>
                     <ServiceSelectionCard
                       serviceKey={key}
                       serviceLabel={label}

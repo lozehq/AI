@@ -88,8 +88,38 @@ export const notificationManager = {
   // 获取用户已读通知ID列表
   getUserReadStatus: async (userId) => {
     try {
+      if (!userId) {
+        console.warn('获取已读状态时用户ID为空');
+        return [];
+      }
+
       const key = `notification_read_${userId}`;
-      return await fileStorage.getData(key) || [];
+      console.log(`获取用户已读状态，键名: ${key}`);
+
+      // 先尝试从 localStorage 获取缓存的已读状态
+      try {
+        const cachedData = localStorage.getItem(key);
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          console.log(`从 localStorage 获取到已读状态: ${parsedData.length} 条`);
+          return parsedData;
+        }
+      } catch (cacheError) {
+        console.warn('从 localStorage 获取已读状态失败:', cacheError);
+      }
+
+      // 如果缓存中没有，从文件存储获取
+      const data = await fileStorage.getData(key) || [];
+      console.log(`从文件存储获取到已读状态: ${data.length} 条`);
+
+      // 将数据缓存到 localStorage
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (cacheError) {
+        console.warn('将已读状态缓存到 localStorage 失败:', cacheError);
+      }
+
+      return data;
     } catch (error) {
       console.error('获取用户已读状态失败:', error);
       return [];
@@ -99,13 +129,34 @@ export const notificationManager = {
   // 标记通知为已读
   markAsRead: async (userId, notificationId) => {
     try {
+      if (!userId || !notificationId) {
+        console.warn('标记通知已读时用户ID或通知ID为空');
+        return false;
+      }
+
       const key = `notification_read_${userId}`;
+      console.log(`标记通知已读，键名: ${key}, 通知ID: ${notificationId}`);
+
       const readStatus = await notificationManager.getUserReadStatus(userId);
+      console.log('当前已读状态:', readStatus);
 
       // 如果通知ID不在已读列表中，添加它
       if (!readStatus.includes(notificationId)) {
         readStatus.push(notificationId);
-        await fileStorage.saveData(key, readStatus);
+
+        // 保存到文件存储
+        const saveResult = await fileStorage.saveData(key, readStatus);
+        console.log('保存已读状态到文件存储结果:', saveResult);
+
+        // 同时更新 localStorage 缓存
+        try {
+          localStorage.setItem(key, JSON.stringify(readStatus));
+          console.log('已读状态已缓存到 localStorage');
+        } catch (cacheError) {
+          console.warn('将已读状态缓存到 localStorage 失败:', cacheError);
+        }
+      } else {
+        console.log(`通知 ${notificationId} 已经标记为已读，无需重复标记`);
       }
 
       return true;
@@ -118,11 +169,31 @@ export const notificationManager = {
   // 标记所有通知为已读
   markAllAsRead: async (userId) => {
     try {
+      if (!userId) {
+        console.warn('标记所有通知已读时用户ID为空');
+        return false;
+      }
+
       const key = `notification_read_${userId}`;
+      console.log(`标记所有通知已读，键名: ${key}`);
+
       const userNotifications = await notificationManager.getUserNotifications(userId);
+      console.log(`用户有 ${userNotifications.length} 条通知需要标记为已读`);
+
       const allIds = userNotifications.map(notification => notification.id);
 
-      await fileStorage.saveData(key, allIds);
+      // 保存到文件存储
+      const saveResult = await fileStorage.saveData(key, allIds);
+      console.log('保存所有已读状态到文件存储结果:', saveResult);
+
+      // 同时更新 localStorage 缓存
+      try {
+        localStorage.setItem(key, JSON.stringify(allIds));
+        console.log('所有已读状态已缓存到 localStorage');
+      } catch (cacheError) {
+        console.warn('将所有已读状态缓存到 localStorage 失败:', cacheError);
+      }
+
       return true;
     } catch (error) {
       console.error('标记所有通知已读失败:', error);

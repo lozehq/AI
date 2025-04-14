@@ -90,6 +90,17 @@ export const fileSystemService = {
     try {
       console.log(`开始读取文件 ${key}`);
 
+      // 尝试从 localStorage 读取
+      try {
+        const localData = localStorage.getItem(`data_${key}`);
+        if (localData) {
+          console.log(`从 localStorage 成功读取数据: ${key}`);
+          return JSON.parse(localData);
+        }
+      } catch (localError) {
+        console.warn(`从 localStorage 读取数据失败: ${localError}`);
+      }
+
       // 构建文件路径
       const filePath = isNodeEnvironment
         ? path.join(DATA_DIR, `${key}.json`)
@@ -113,7 +124,16 @@ export const fileSystemService = {
         console.log(`成功读取文件 ${filePath}`);
 
         // 解析 JSON 数据
-        return JSON.parse(data);
+        const parsedData = JSON.parse(data);
+
+        // 只同步到 localStorage
+        try {
+          localStorage.setItem(`data_${key}`, data);
+        } catch (syncError) {
+          console.warn(`同步数据到 localStorage 失败: ${syncError}`);
+        }
+
+        return parsedData;
       }
       // 在浏览器环境中使用模拟文件系统
       else {
@@ -126,6 +146,13 @@ export const fileSystemService = {
         // 读取文件
         const data = mockFileSystem.readFile(filePath);
         console.log(`成功读取文件 ${filePath}`);
+
+        // 只同步到 localStorage
+        try {
+          localStorage.setItem(`data_${key}`, JSON.stringify(data));
+        } catch (syncError) {
+          console.warn(`同步数据到 localStorage 失败: ${syncError}`);
+        }
 
         return data;
       }
@@ -144,6 +171,17 @@ export const fileSystemService = {
   writeFile: async (key, data) => {
     try {
       console.log(`开始写入文件 ${key}`);
+      let success = false;
+
+      // 尝试写入 localStorage
+      try {
+        const jsonData = JSON.stringify(data);
+        localStorage.setItem(`data_${key}`, jsonData);
+        console.log(`成功写入数据到 localStorage: ${key}`);
+        success = true;
+      } catch (localError) {
+        console.warn(`写入数据到 localStorage 失败: ${localError}`);
+      }
 
       // 构建文件路径
       const filePath = isNodeEnvironment
@@ -180,6 +218,8 @@ export const fileSystemService = {
 
         return true;
       }
+
+      return success;
     } catch (error) {
       console.error(`写入文件 ${key} 失败:`, error);
       return false;
@@ -194,6 +234,16 @@ export const fileSystemService = {
   deleteFile: async (key) => {
     try {
       console.log(`开始删除文件 ${key}`);
+      let success = false;
+
+      // 删除 localStorage 中的数据
+      try {
+        localStorage.removeItem(`data_${key}`);
+        console.log(`成功从 localStorage 删除数据: ${key}`);
+        success = true;
+      } catch (localError) {
+        console.warn(`从 localStorage 删除数据失败: ${localError}`);
+      }
 
       // 构建文件路径
       const filePath = isNodeEnvironment
@@ -205,7 +255,7 @@ export const fileSystemService = {
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
           console.warn(`文件 ${filePath} 不存在`);
-          return false;
+          return success;
         }
 
         // 删除文件
@@ -219,7 +269,7 @@ export const fileSystemService = {
         // 检查文件是否存在
         if (!mockFileSystem.existsFile(filePath)) {
           console.warn(`文件 ${filePath} 不存在`);
-          return false;
+          return success;
         }
 
         // 删除文件

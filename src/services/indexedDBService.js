@@ -1,6 +1,6 @@
 // IndexedDB服务 - 提供离线数据存储功能
 const DB_NAME = 'AICommunityDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // 升级数据库版本以触发升级事件
 
 // 初始化数据库
 export const initDB = () => {
@@ -83,6 +83,13 @@ export const initDB = () => {
       if (!db.objectStoreNames.contains('notifications')) {
         const notificationsStore = db.createObjectStore('notifications', { keyPath: 'id', autoIncrement: true });
         notificationsStore.createIndex('userId', 'userId', { unique: false });
+      }
+
+      // 创建卡密表
+      if (!db.objectStoreNames.contains('cardKeys')) {
+        const cardKeysStore = db.createObjectStore('cardKeys', { keyPath: 'id' });
+        cardKeysStore.createIndex('code', 'code', { unique: true });
+        cardKeysStore.createIndex('isUsed', 'isUsed', { unique: false });
       }
 
       console.log('IndexedDB数据库结构初始化完成');

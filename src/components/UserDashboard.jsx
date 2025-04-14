@@ -29,7 +29,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -101,8 +102,14 @@ const UserDashboard = () => {
   const [orders, setOrders] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const { currentUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { currentUser, setCurrentUser } = useAuth();
   const { showError } = useError();
+
+  // 成功提示函数
+  const showSuccess = (message, severity = 'success') => {
+    showError(message, severity);
+  };
 
   // 个人信息表单状态
   const [userForm, setUserForm] = useState({
@@ -312,20 +319,33 @@ const UserDashboard = () => {
 
     // 验证卡密
     if (!cardKeyForm.code.trim()) {
-      showSnackbar('请输入卡密', 'warning');
+      showError('请输入卡密', 'warning');
       return;
     }
 
+    // 显示加载中状态
+    setIsLoading(true);
+
     try {
+      // 清除卡密中的连字符
+      const cleanCode = cardKeyForm.code.replace(/-/g, '');
+      console.log('开始验证卡密:', cleanCode);
+
       // 验证卡密是否有效
-      const validationResult = await cardKeyManager.validateCardKey(cardKeyForm.code);
+      const validationResult = await cardKeyManager.validateCardKey(cleanCode);
+      console.log('卡密验证结果:', validationResult);
+
       if (!validationResult.valid) {
-        showSnackbar(validationResult.message, 'error');
+        showError(validationResult.message, 'error');
+        setIsLoading(false);
         return;
       }
 
       // 使用卡密
-      const result = await cardKeyManager.useCardKey(cardKeyForm.code, currentUser.id);
+      console.log('开始使用卡密...');
+      const result = await cardKeyManager.useCardKey(cleanCode, currentUser.id);
+      console.log('卡密使用结果:', result);
+
       if (result.success) {
         // 更新用户余额
         const updatedUser = {
@@ -333,43 +353,63 @@ const UserDashboard = () => {
           balance: (currentUser.balance || 0) + result.amount
         };
 
-        // 不再需要更新本地存储，因为使用 AuthContext 管理用户状态
-        // 只需要更新当前组件中的用户状态
+        // 更新本地存储中的用户信息
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        // 更新当前用户状态
         setCurrentUser(updatedUser);
 
         // 创建充值交易记录
+        console.log('开始创建交易记录...');
         const transactionResult = await transactionManager.createTransaction(
           currentUser.id,
           result.amount,
           TRANSACTION_TYPES.RECHARGE,
-          `卡密充值: ${formatCardKey(result.cardKey)}`,
-          result.cardKey
+          `卡密充值: ${formatCardKey(result.cardKey.code)}`,
+          result.cardKey.id
         );
+        console.log('创建交易记录结果:', transactionResult);
 
         if (!transactionResult.success) {
           // 如果有错误，显示错误信息
           const errorMessage = transactionResult.errors?.general || Object.values(transactionResult.errors || {}).join(', ');
           showError(errorMessage || '创建充值交易记录失败', 'error');
+          setIsLoading(false);
           return;
         }
 
         // 更新交易记录列表
         setTransactions(prev => [transactionResult.transaction, ...prev]);
+
+        // 显示成功消息
+        showSuccess(`充值成功！已充值 ${formatCurrency(result.amount)}`, 'success');
+
+        // 关闭充值对话框
+        setRechargeDialog(false);
+
+        // 尝试更新历史卡密状态
+        try {
+          const savedCardKeys = JSON.parse(localStorage.getItem('generatedCardKeys') || '[]');
+          const updatedCardKeys = savedCardKeys.map(key => {
+            if (key.code === cleanCode) {
+              return { ...key, isUsed: true, usedAt: new Date().toISOString(), usedBy: currentUser.id };
+            }
+            return key;
+          });
+          localStorage.setItem('generatedCardKeys', JSON.stringify(updatedCardKeys));
+        } catch (storageError) {
+          console.error('更新历史卡密状态失败:', storageError);
+        }
       } else {
         showError(result.message || '卡密无效或已被使用', 'error');
-        return;
       }
+      // 关闭加载中状态
+      setIsLoading(false);
     } catch (error) {
       console.error('充值失败:', error);
       showError('充值失败，请重试', 'error');
+      setIsLoading(false);
       return;
     }
-
-    // 关闭对话框
-    setRechargeDialog(false);
-
-    // 显示成功消息
-    showError(`充值成功！已添加${formatCurrency(result.amount)}到您的账户`, 'success');
   };
 
   // 提现功能
@@ -438,7 +478,7 @@ const UserDashboard = () => {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Sidebar */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={3}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -538,7 +578,7 @@ const UserDashboard = () => {
           </Grid>
 
           {/* Main content */}
-          <Grid item xs={12} md={9}>
+          <Grid item xs={12} sm={9}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -770,107 +810,45 @@ const UserDashboard = () => {
                     账户设置
                   </Typography>
 
-                  <Card
-                    className="glass-panel"
-                    sx={{ mb: 4 }}
-                  >
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        个人信息
-                      </Typography>
-
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
-                          <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
-                            <TextField
-                              fullWidth
-                              label="用户名"
-                              name="name"
-                              value={userForm.name}
-                              onChange={handleUserFormChange}
-                              margin="normal"
-                            />
-                          </Box>
-                          <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
-                            <TextField
-                              fullWidth
-                              label="电子邮箱"
-                              name="email"
-                              value={userForm.email}
-                              onChange={handleUserFormChange}
-                              margin="normal"
-                            />
-                          </Box>
-                        </Box>
-                        <Box>
-                          <TextField
-                            fullWidth
-                            label="手机号码"
-                            name="phone"
-                            value={userForm.phone}
-                            onChange={handleUserFormChange}
-                            margin="normal"
-                          />
-                        </Box>
-                      </Box>
-
-                      <Box sx={{ mt: 3, textAlign: 'right' }}>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={handleSaveUserInfo}
-                        >
-                          保存修改
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="glass-panel">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        安全设置
-                      </Typography>
-
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="body1" gutterBottom>
-                          修改密码
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <Card className="glass-panel">
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                          个人信息
                         </Typography>
+
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <Box>
-                            <TextField
-                              fullWidth
-                              label="当前密码"
-                              name="currentPassword"
-                              type="password"
-                              value={passwordForm.currentPassword}
-                              onChange={handlePasswordFormChange}
-                              margin="normal"
-                            />
-                          </Box>
                           <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
                             <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
                               <TextField
                                 fullWidth
-                                label="新密码"
-                                name="newPassword"
-                                type="password"
-                                value={passwordForm.newPassword}
-                                onChange={handlePasswordFormChange}
+                                label="用户名"
+                                name="name"
+                                value={userForm.name}
+                                onChange={handleUserFormChange}
                                 margin="normal"
                               />
                             </Box>
                             <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
                               <TextField
                                 fullWidth
-                                label="确认新密码"
-                                name="confirmPassword"
-                                type="password"
-                                value={passwordForm.confirmPassword}
-                                onChange={handlePasswordFormChange}
+                                label="电子邮箱"
+                                name="email"
+                                value={userForm.email}
+                                onChange={handleUserFormChange}
                                 margin="normal"
                               />
                             </Box>
+                          </Box>
+                          <Box>
+                            <TextField
+                              fullWidth
+                              label="手机号码"
+                              name="phone"
+                              value={userForm.phone}
+                              onChange={handleUserFormChange}
+                              margin="normal"
+                            />
                           </Box>
                         </Box>
 
@@ -878,14 +856,75 @@ const UserDashboard = () => {
                           <Button
                             variant="contained"
                             color="primary"
-                            onClick={handleUpdatePassword}
+                            onClick={handleSaveUserInfo}
                           >
-                            更新密码
+                            保存修改
                           </Button>
                         </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="glass-panel">
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                          安全设置
+                        </Typography>
+
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="body1" gutterBottom>
+                            修改密码
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Box>
+                              <TextField
+                                fullWidth
+                                label="当前密码"
+                                name="currentPassword"
+                                type="password"
+                                value={passwordForm.currentPassword}
+                                onChange={handlePasswordFormChange}
+                                margin="normal"
+                              />
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                              <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
+                                <TextField
+                                  fullWidth
+                                  label="新密码"
+                                  name="newPassword"
+                                  type="password"
+                                  value={passwordForm.newPassword}
+                                  onChange={handlePasswordFormChange}
+                                  margin="normal"
+                                />
+                              </Box>
+                              <Box sx={{ flex: 1, width: { xs: '100%', sm: '50%' } }}>
+                                <TextField
+                                  fullWidth
+                                  label="确认新密码"
+                                  name="confirmPassword"
+                                  type="password"
+                                  value={passwordForm.confirmPassword}
+                                  onChange={handlePasswordFormChange}
+                                  margin="normal"
+                                />
+                              </Box>
+                            </Box>
+                          </Box>
+
+                          <Box sx={{ mt: 3, textAlign: 'right' }}>
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              onClick={handleUpdatePassword}
+                            >
+                              更新密码
+                            </Button>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
                 </Box>
               )}
             </motion.div>
@@ -920,8 +959,15 @@ const UserDashboard = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRechargeDialog(false)}>取消</Button>
-          <Button onClick={handleUseCardKey} color="primary">充值</Button>
+          <Button onClick={() => setRechargeDialog(false)} disabled={isLoading}>取消</Button>
+          <Button
+            onClick={handleUseCardKey}
+            color="primary"
+            disabled={isLoading}
+            startIcon={isLoading ? <CircularProgress size={20} /> : null}
+          >
+            {isLoading ? '处理中...' : '充值'}
+          </Button>
         </DialogActions>
       </Dialog>
 

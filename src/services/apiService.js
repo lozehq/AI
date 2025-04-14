@@ -173,10 +173,34 @@ const apiService = {
       } catch (apiError) {
         console.error('在线登录失败:', apiError);
 
-        // 如果在线登录失败，切换到离线模式并重试
+        // 如果在线登录失败，切换到离线模式并尝试离线登录
         isOfflineMode = true;
         window.isOfflineMode = true;
-        return this.login(username, password);
+
+        // 直接尝试离线登录，而不是递归调用
+        try {
+          // 使用 IndexedDB 进行用户验证
+          const user = await userOperations.login(username, password);
+
+          if (user) {
+            console.log('离线模式登录成功:', user);
+            // 生成离线令牌
+            const offlineToken = `offline_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+            // 存储令牌和用户信息
+            localStorage.setItem('auth_token', offlineToken);
+            localStorage.setItem('current_user', JSON.stringify(user));
+
+            // 返回成功响应
+            const { password: _, ...userWithoutPassword } = user;
+            return { success: true, user: userWithoutPassword, token: offlineToken };
+          } else {
+            console.log('离线模式登录失败：用户名或密码错误');
+            return { success: false, message: '用户名或密码错误' };
+          }
+        } catch (dbError) {
+          console.error('离线模式登录错误:', dbError);
+          return { success: false, message: '登录失败，请重试' };
+        }
       }
     } catch (error) {
       console.error('登录失败:', error);
@@ -299,10 +323,20 @@ const apiService = {
       } catch (apiError) {
         console.error('从服务器获取用户失败:', apiError);
 
-        // 如果 API 调用失败，切换到离线模式并重试
+        // 如果 API 调用失败，切换到离线模式
         isOfflineMode = true;
         window.isOfflineMode = true;
-        return this.getCurrentUser();
+
+        // 直接从本地存储获取用户信息，而不是递归调用
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          console.log('从本地存储获取到用户:', user);
+          return { success: true, user };
+        } else {
+          // 清除令牌
+          localStorage.removeItem('auth_token');
+          return { success: false, message: '会话已过期，请重新登录' };
+        }
       }
     } catch (error) {
       console.error('获取当前用户失败:', error);
@@ -423,10 +457,11 @@ const apiService = {
     } catch (error) {
       console.error(`从服务器获取数据 ${key} 失败:`, error);
 
-      // 如果服务器请求失败，切换到离线模式并重试
+      // 如果服务器请求失败，切换到离线模式
       isOfflineMode = true;
       window.isOfflineMode = true;
-      return this.getData(key);
+      // 直接从文件存储获取数据，而不是递归调用
+      return await fileStorage.getData(key) || [];
     }
   },
 
@@ -610,10 +645,14 @@ const apiService = {
     } catch (error) {
       console.error('从服务器获取数据键失败:', error);
 
-      // 如果服务器请求失败，切换到离线模式并重试
+      // 如果服务器请求失败，切换到离线模式
       isOfflineMode = true;
       window.isOfflineMode = true;
-      return this.getAllKeys();
+
+      // 直接返回预定义的键列表，而不是递归调用
+      const predefinedKeys = ['users', 'services', 'orders', 'inviteCodes', 'transactions', 'notifications', 'cardKeys'];
+      console.log('离线模式，返回预定义的数据键:', predefinedKeys);
+      return predefinedKeys;
     }
   }
 };

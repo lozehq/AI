@@ -48,8 +48,17 @@ const initializeStorage = async () => {
   }
 };
 
-// Initialize on module load
-initializeStorage();
+// 延迟初始化，避免在模块加载时执行
+let initialized = false;
+
+const lazyInitialize = async () => {
+  if (initialized) return;
+
+  console.log('开始延迟初始化数据存储...');
+  await initializeStorage();
+  initialized = true;
+  console.log('数据存储初始化完成');
+};
 
 /**
  * User related functions
@@ -57,17 +66,21 @@ initializeStorage();
 export const userManager = {
   // Get all users
   getAllUsers: async () => {
+    await lazyInitialize();
     return await fileStorage.getData('users') || [];
   },
 
   // Get user by ID
   getUserById: async (userId) => {
+    await lazyInitialize();
     const users = await fileStorage.getData('users') || [];
     return users.find(user => user.id === userId) || null;
   },
 
   // Create new user
   createUser: async (userData) => {
+    await lazyInitialize();
+
     // 验证用户数据
     const validation = validator.validateUser(userData);
     if (!validation.isValid) {
@@ -205,6 +218,7 @@ export const userManager = {
 export const orderManager = {
   // Get all orders
   getAllOrders: async () => {
+    await lazyInitialize();
     return await fileStorage.getData('orders') || [];
   },
 
@@ -302,6 +316,7 @@ export const orderManager = {
 export const serviceManager = {
   // Get all services with pricing
   getAllServices: async () => {
+    await lazyInitialize();
     return await fileStorage.getData('services') || {};
   },
 

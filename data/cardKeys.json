@@ -1,0 +1,22 @@
+[
+  {
+    "id": "card_test_1",
+    "code": "TEST1234ABCD5678",
+    "amount": 100,
+    "createdAt": "2025-04-14T02:40:09.464Z",
+    "expiresAt": "2026-04-14T02:40:09.464Z",
+    "isUsed": false,
+    "usedAt": null,
+    "usedBy": null
+  },
+  {
+    "id": "card_test_2",
+    "code": "ABCD5678TEST1234",
+    "amount": 200,
+    "createdAt": "2025-04-14T02:40:09.464Z",
+    "expiresAt": "2026-04-14T02:40:09.464Z",
+    "isUsed": true,
+    "usedAt": "2025-04-14T06:38:04.792Z",
+    "usedBy": "admin_emergency_1744568339831"
+  }
+]

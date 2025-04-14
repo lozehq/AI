@@ -32,7 +32,8 @@ import {
   LinearProgress,
   Slider,
   MenuItem,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -57,7 +58,8 @@ import {
   Notifications as NotificationsIcon,
   Info as InfoIcon,
   Warning as WarningIcon,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 
 // 导入数据管理工具
@@ -123,6 +125,12 @@ const AdminPanel = () => {
   // 新生成的卡密列表
   const [newCardKeys, setNewCardKeys] = useState([]);
 
+  // 历史生成的卡密
+  const [historyCardKeys, setHistoryCardKeys] = useState([]);
+
+  // 卡密历史对话框
+  const [historyCardKeyDialog, setHistoryCardKeyDialog] = useState(false);
+
   // 编辑订单对话框
   const [editOrderDialog, setEditOrderDialog] = useState(false);
   const [currentOrder, setCurrentOrder] = useState({
@@ -148,23 +156,41 @@ const AdminPanel = () => {
     setIsLoading(true);
 
     try {
-      // 加载用户数据 - 正确处理异步调用
+      // 分批加载数据，减少并发请求
+      console.log('开始分批加载数据...');
+
+      // 第一批：加载用户数据和服务数据（最基础的数据）
+      console.log('加载第一批数据：用户和服务');
       const userData = await userManager.getAllUsers();
-      console.log('加载用户数据:', userData);
+      console.log('加载用户数据完成:', userData?.length || 0, '个用户');
       setUsers(Array.isArray(userData) ? userData : []);
 
-      // 加载订单数据
-      const orderData = await orderManager.getAllOrders();
-      setOrders(Array.isArray(orderData) ? orderData : []);
-
-      // 加载服务数据
       const serviceData = await serviceManager.getAllServices();
+      console.log('加载服务数据完成');
       setServices(serviceData || {});
 
-      // 加载邀请码数据
+      // 加载历史生成的卡密（从本地存储，不需要异步操作）
+      try {
+        console.log('从本地存储加载历史卡密');
+        const savedCardKeys = JSON.parse(localStorage.getItem('generatedCardKeys') || '[]');
+        setHistoryCardKeys(savedCardKeys);
+        console.log('加载历史卡密完成:', savedCardKeys.length, '个卡密');
+      } catch (storageError) {
+        console.error('加载历史卡密失败:', storageError);
+        setHistoryCardKeys([]);
+      }
+
+      // 第二批：加载订单数据
+      console.log('加载第二批数据：订单');
+      const orderData = await orderManager.getAllOrders();
+      console.log('加载订单数据完成:', orderData?.length || 0, '个订单');
+      setOrders(Array.isArray(orderData) ? orderData : []);
+
+      // 第三批：加载邀请码数据
+      console.log('加载第三批数据：邀请码');
       try {
         const inviteCodeData = await inviteCodeManager.getAllInviteCodes();
-        console.log('加载邀请码数据:', inviteCodeData);
+        console.log('加载邀请码数据完成:', inviteCodeData?.length || 0, '个邀请码');
 
         // 确保数据是数组
         if (Array.isArray(inviteCodeData)) {
@@ -178,13 +204,29 @@ const AdminPanel = () => {
         setInviteCodes([]);
       }
 
-      // 加载卡密数据
-      const cardKeyData = await cardKeyManager.getAllCardKeys();
-      setCardKeys(Array.isArray(cardKeyData) ? cardKeyData : []);
+      // 第四批：加载通知数据
+      console.log('加载第四批数据：通知');
+      try {
+        const notificationData = await notificationManager.getAllNotifications();
+        console.log('加载通知数据完成:', notificationData?.length || 0, '个通知');
+        setNotifications(Array.isArray(notificationData) ? notificationData : []);
+      } catch (notificationError) {
+        console.error('加载通知数据失败:', notificationError);
+        setNotifications([]);
+      }
 
-      // 加载通知数据
-      const notificationData = await notificationManager.getAllNotifications();
-      setNotifications(Array.isArray(notificationData) ? notificationData : []);
+      // 最后加载卡密数据（可能最耗时的操作）
+      console.log('加载最后一批数据：卡密');
+      try {
+        const cardKeyData = await cardKeyManager.getAllCardKeys();
+        console.log('加载卡密数据完成:', cardKeyData?.length || 0, '个卡密');
+        setCardKeys(Array.isArray(cardKeyData) ? cardKeyData : []);
+      } catch (cardKeyError) {
+        console.error('加载卡密数据失败:', cardKeyError);
+        setCardKeys([]);
+      }
+
+      console.log('所有数据加载完成');
     } catch (error) {
       console.error('加载数据失败:', error);
       showSnackbar('加载数据失败', 'error');
@@ -206,24 +248,35 @@ const AdminPanel = () => {
   // 检查管理员权限并加载数据
   useEffect(() => {
     const checkAdmin = async () => {
-      // 检查管理员权限
-      const isUserAdmin = isAdmin();
-      console.log('管理员面板 - 检查管理员权限:', isUserAdmin);
+      try {
+        // 检查管理员权限
+        console.log('开始检查管理员权限...');
+        const isUserAdmin = isAdmin();
+        console.log('管理员面板 - 检查管理员权限结果:', isUserAdmin);
 
-      if (!isUserAdmin) {
-        // 如果不是管理员，重定向到首页
-        console.log('非管理员用户尝试访问管理员面板，重定向到首页');
-        navigate('/');
-        return;
+        if (!isUserAdmin) {
+          // 如果不是管理员，重定向到首页
+          console.log('非管理员用户尝试访问管理员面板，重定向到首页');
+          navigate('/');
+          return;
+        }
+
+        // 使用 setTimeout 延迟加载数据，避免页面卡住
+        console.log('管理员权限验证通过，延迟加载数据');
+        setTimeout(() => {
+          loadData().catch(error => {
+            console.error('加载数据失败:', error);
+            showSnackbar('加载数据失败，请刷新页面重试', 'error');
+          });
+        }, 100);
+      } catch (error) {
+        console.error('检查管理员权限失败:', error);
+        showSnackbar('检查管理员权限失败', 'error');
       }
-
-      // 加载数据 - 正确处理异步函数
-      console.log('管理员权限验证通过，加载数据');
-      await loadData();
     };
 
     checkAdmin();
-  }, [navigate, isAdmin, loadData]);
+  }, [navigate, isAdmin, loadData, showSnackbar]);
 
   // 删除重复的 showSnackbar 函数定义
 
@@ -415,6 +468,9 @@ const AdminPanel = () => {
         return;
       }
 
+      // 显示加载中状态
+      setIsLoading(true);
+
       // 生成卡密 - 正确处理异步操作
       console.log('开始生成卡密...');
       const result = await cardKeyManager.createCardKey(
@@ -426,7 +482,23 @@ const AdminPanel = () => {
 
       if (result && result.success) {
         showSnackbar(result.message, 'success');
+
+        // 保存新生成的卡密
         setNewCardKeys(result.cardKeys);
+
+        // 将新卡密保存到本地存储，以便关闭对话框后仍能查看
+        try {
+          // 获取已保存的卡密列表
+          const savedCardKeys = JSON.parse(localStorage.getItem('generatedCardKeys') || '[]');
+          // 将新卡密添加到列表中
+          const updatedCardKeys = [...savedCardKeys, ...result.cardKeys];
+          // 保存回本地存储
+          localStorage.setItem('generatedCardKeys', JSON.stringify(updatedCardKeys));
+          console.log('新卡密已保存到本地存储');
+        } catch (storageError) {
+          console.error('保存卡密到本地存储失败:', storageError);
+        }
+
         // 重新加载数据
         await loadData();
       } else {
@@ -434,9 +506,13 @@ const AdminPanel = () => {
         console.error('生成卡密失败:', errorMsg);
         showSnackbar(errorMsg, 'error');
       }
+
+      // 关闭加载中状态
+      setIsLoading(false);
     } catch (error) {
       console.error('生成卡密失败:', error);
       showSnackbar('生成卡密失败: ' + (error.message || '未知错误'), 'error');
+      setIsLoading(false);
     }
   };
 
@@ -656,6 +732,29 @@ const AdminPanel = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
+      {isLoading && (
+        <Box sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          bgcolor: 'rgba(0, 0, 0, 0.7)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <CircularProgress size={60} thickness={4} sx={{ color: 'primary.main' }} />
+          <Typography variant="h6" sx={{ mt: 2, color: 'primary.main' }}>
+            正在加载管理员面板...
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+            首次加载可能需要一点时间，请耐心等待
+          </Typography>
+        </Box>
+      )}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1157,22 +1256,42 @@ const AdminPanel = () => {
                 <Typography variant="h5" component="h2" color="primary.main">
                   卡密管理
                 </Typography>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    setCardKeyForm({
-                      amount: 100,
-                      count: 1,
-                      expiresInDays: 30
-                    });
-                    setNewCardKeys([]);
-                    setCreateCardKeyDialog(true);
-                  }}
-                >
-                  生成卡密
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<HistoryIcon />}
+                    onClick={() => {
+                      // 加载历史卡密
+                      try {
+                        const savedCardKeys = JSON.parse(localStorage.getItem('generatedCardKeys') || '[]');
+                        setHistoryCardKeys(savedCardKeys);
+                      } catch (storageError) {
+                        console.error('加载历史卡密失败:', storageError);
+                        setHistoryCardKeys([]);
+                      }
+                      setHistoryCardKeyDialog(true);
+                    }}
+                  >
+                    历史卡密
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                      setCardKeyForm({
+                        amount: 100,
+                        count: 1,
+                        expiresInDays: 30
+                      });
+                      setNewCardKeys([]);
+                      setCreateCardKeyDialog(true);
+                    }}
+                  >
+                    生成卡密
+                  </Button>
+                </Box>
               </Box>
 
               <TableContainer>
@@ -1360,7 +1479,7 @@ const AdminPanel = () => {
             <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
                 {/* 用户统计卡片 */}
-                <Grid item xs={12} md={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={3}>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1457,7 +1576,7 @@ const AdminPanel = () => {
                 </Grid>
 
                 {/* 订单统计卡片 */}
-                <Grid item xs={12} md={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={3}>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1562,7 +1681,7 @@ const AdminPanel = () => {
                 </Grid>
 
                 {/* 服务统计卡片 */}
-                <Grid item xs={12} md={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={3}>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1656,7 +1775,7 @@ const AdminPanel = () => {
                 </Grid>
 
                 {/* 邀请码统计卡片 */}
-                <Grid item xs={12} md={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={3}>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -2032,7 +2151,7 @@ const AdminPanel = () => {
                 ))}
               </Paper>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                请立即复制保存这些卡密，关闭对话框后将无法再次查看完整卡密。
+                请立即复制保存这些卡密。关闭对话框后可以在“历史卡密”中查看。
               </Typography>
             </Box>
           )}
@@ -2042,6 +2161,95 @@ const AdminPanel = () => {
           <Button onClick={handleCreateCardKey} color="primary" disabled={newCardKeys.length > 0}>
             生成卡密
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 卡密历史对话框 */}
+      <Dialog open={historyCardKeyDialog} onClose={() => setHistoryCardKeyDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>历史生成的卡密</DialogTitle>
+        <DialogContent>
+          {historyCardKeys.length > 0 ? (
+            <Box sx={{ mt: 2 }}>
+              <TableContainer component={Paper} sx={{ bgcolor: 'rgba(3, 11, 23, 0.7)' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>序号</TableCell>
+                      <TableCell>卡密</TableCell>
+                      <TableCell>金额</TableCell>
+                      <TableCell>创建时间</TableCell>
+                      <TableCell>状态</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {historyCardKeys.map((key, index) => (
+                      <TableRow key={key.id}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Typography sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                              {formatCardKey(key.code)}
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                navigator.clipboard.writeText(key.code);
+                                showSnackbar('卡密已复制到剪贴板', 'success');
+                              }}
+                              sx={{ ml: 1 }}
+                            >
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{formatCurrency(key.amount)}</TableCell>
+                        <TableCell>{new Date(key.createdAt).toLocaleString()}</TableCell>
+                        <TableCell>
+                          {key.isUsed ? (
+                            <Chip
+                              label="已使用"
+                              color="error"
+                              size="small"
+                              icon={<CancelIcon />}
+                            />
+                          ) : (
+                            <Chip
+                              label="未使用"
+                              color="success"
+                              size="small"
+                              icon={<CheckCircleIcon />}
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                历史卡密仅在当前浏览器中保存，清除浏览器数据将导致历史记录丢失。
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary">
+                暂无历史卡密记录
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              localStorage.removeItem('generatedCardKeys');
+              setHistoryCardKeys([]);
+              showSnackbar('历史卡密记录已清除', 'success');
+            }}
+            color="error"
+          >
+            清除历史
+          </Button>
+          <Button onClick={() => setHistoryCardKeyDialog(false)}>关闭</Button>
         </DialogActions>
       </Dialog>
 

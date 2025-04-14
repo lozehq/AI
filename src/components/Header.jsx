@@ -179,8 +179,18 @@ const Header = () => {
   const handleMarkAllAsRead = async () => {
     if (currentUser) {
       try {
-        // 使用 markAllAsRead 方法
-        await notificationManager.markAllAsRead(currentUser.id);
+        console.log('开始标记所有通知为已读');
+        const result = await notificationManager.markAllAsRead(currentUser.id);
+        console.log('标记所有通知已读结果:', result);
+
+        // 立即更新本地已读状态缓存
+        const newReadStatus = {};
+        notifications.forEach(notification => {
+          newReadStatus[notification.id] = true;
+        });
+        setReadStatus(newReadStatus);
+
+        // 重新加载通知
         await loadNotifications();
       } catch (error) {
         console.error('标记所有通知已读失败:', error);
@@ -195,6 +205,14 @@ const Header = () => {
       try {
         const result = await notificationManager.markAsRead(currentUser.id, notificationId);
         console.log('标记通知已读结果：', result);
+
+        // 立即更新本地已读状态缓存
+        setReadStatus(prev => ({
+          ...prev,
+          [notificationId]: true
+        }));
+
+        // 重新加载通知
         await loadNotifications();
       } catch (error) {
         console.error('标记通知已读失败:', error);
@@ -205,16 +223,9 @@ const Header = () => {
   };
 
   // 检查通知是否已读
-  const isNotificationRead = async (notificationId) => {
+  const isNotificationRead = (notificationId) => {
     if (!currentUser) return true;
-
-    try {
-      const userReadStatus = await notificationManager.getUserReadStatus(currentUser.id);
-      return userReadStatus.includes(notificationId);
-    } catch (error) {
-      console.error('获取用户已读状态失败:', error);
-      return false;
-    }
+    return !!readStatus[notificationId];
   };
 
   // 注销

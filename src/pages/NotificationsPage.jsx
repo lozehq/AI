@@ -63,8 +63,19 @@ const NotificationsPage = () => {
     // 标记为已读
     if (user) {
       try {
-        await notificationManager.markAsRead(user.id, notification.id);
-        await loadNotifications(); // 重新加载通知以更新未读状态
+        console.log('开始标记通知为已读:', notification.id);
+        const result = await notificationManager.markAsRead(user.id, notification.id);
+        console.log('标记通知已读结果:', result);
+
+        // 立即更新本地已读状态缓存
+        setReadStatusMap(prev => ({
+          ...prev,
+          [notification.id]: true
+        }));
+
+        // 重新加载通知和已读状态
+        await loadNotifications();
+        await loadReadStatus();
       } catch (error) {
         console.error('标记通知为已读失败:', error);
       }
@@ -80,8 +91,20 @@ const NotificationsPage = () => {
   const handleMarkAllAsRead = async () => {
     if (user) {
       try {
-        await notificationManager.markAllAsRead(user.id);
+        console.log('开始标记所有通知为已读');
+        const result = await notificationManager.markAllAsRead(user.id);
+        console.log('标记所有通知已读结果:', result);
+
+        // 立即更新本地已读状态缓存
+        const newReadStatusMap = {};
+        notifications.forEach(notification => {
+          newReadStatusMap[notification.id] = true;
+        });
+        setReadStatusMap(newReadStatusMap);
+
+        // 重新加载通知和已读状态
         await loadNotifications();
+        await loadReadStatus();
       } catch (error) {
         console.error('标记所有通知为已读失败:', error);
       }
@@ -117,19 +140,47 @@ const NotificationsPage = () => {
   };
 
   // 检查通知是否已读
+  const [readStatusMap, setReadStatusMap] = useState({});
+
+  // 加载已读状态
+  const loadReadStatus = async () => {
+    if (!user) return;
+
+    try {
+      const userReadStatus = await notificationManager.getUserReadStatus(user.id);
+      console.log('加载到的用户已读状态:', userReadStatus);
+
+      // 创建一个映射对象，便于快速查找
+      const statusMap = {};
+      userReadStatus.forEach(id => {
+        statusMap[id] = true;
+      });
+
+      setReadStatusMap(statusMap);
+    } catch (error) {
+      console.error('加载用户已读状态失败:', error);
+    }
+  };
+
+  // 在通知加载后加载已读状态
+  useEffect(() => {
+    if (notifications.length > 0) {
+      loadReadStatus();
+    }
+  }, [notifications]);
+
+  // 检查通知是否已读
   const isNotificationRead = (notificationId) => {
     if (!user) return true;
-
-    const userReadStatus = notificationManager.getUserReadStatus(user.id);
-    return userReadStatus.includes(notificationId);
+    return !!readStatusMap[notificationId];
   };
 
   // 获取未读通知数量
   const getUnreadCount = () => {
     if (!user) return 0;
 
-    const userReadStatus = notificationManager.getUserReadStatus(user.id);
-    return notifications.filter(notification => !userReadStatus.includes(notification.id)).length;
+    // 使用本地缓存的已读状态计算未读数量
+    return notifications.filter(notification => !readStatusMap[notification.id]).length;
   };
 
   return (
